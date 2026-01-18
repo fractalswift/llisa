@@ -9,15 +9,23 @@ A structured approach to implementing large features by breaking them into phase
 
 ## Working Directory
 
-Epics are stored in `.epics/` relative to a base path. By default, this is the project root.
+Epics are stored in `.epics/` relative to **where you run `opencode`**. 
 
-**If the epic is in a subdirectory** (e.g., `weather-app/.epics/my-feature`), pass the `basePath` parameter to all tools:
-- `list_epics(basePath: "weather-app")`
-- `get_epic_status(epicName: "my-feature", basePath: "weather-app")`
-- `get_available_tasks(epicName: "my-feature", basePath: "weather-app")`
-- `build_task_context(epicName: "my-feature", taskId: "01", basePath: "weather-app")`
+Run opencode from your project root and epics will be at `your-project/.epics/`.
 
-Determine the correct `basePath` by checking where the `.epics/` directory is located relative to the project root.
+**Example structure:**
+```
+my-project/           <- run `opencode` from here
+├── .epics/
+│   ├── config.jsonc
+│   ├── .gitignore
+│   └── my-feature/
+│       ├── .state
+│       ├── spec.md
+│       └── tasks/
+├── src/
+└── package.json
+```
 
 ---
 
@@ -25,8 +33,37 @@ Determine the correct `basePath` by checking where the `.epics/` directory is lo
 
 The input format is: `<epic-name> [mode]`
 
+### If no arguments or `help`:
+
+If the user runs `/epic` with no arguments, or `/epic help`, immediately respond with this help menu (no tool calls needed):
+
+```
+Epic Workflow - Available Commands:
+
+  /epic list                - List all epics and their status
+  /epic <name>              - Continue or create an epic (interactive)
+  /epic <name> spec         - Create/view the spec only
+  /epic <name> status       - Show detailed epic status
+  /epic <name> yolo         - Auto-execute mode (no confirmations)
+  /epic config view         - View current configuration
+  /epic config init         - Initialize config with defaults
+  /epic config reset        - Reset config to defaults
+
+Examples:
+  /epic list                - See all your epics
+  /epic auth-system         - Start or continue the auth-system epic
+  /epic auth-system yolo    - Run auth-system in full auto mode
+
+Get started: /epic <epic-name>
+```
+
+**Stop here. Do not call any tools or do anything else.**
+
+### Otherwise, parse the arguments:
+
 **Modes:**
-- `list` (no epic name) → List all epics
+- `list` → List all epics
+- `config <action>` → Config management (view/init/reset)
 - `<name>` (no mode) → Default mode with checkpoints
 - `<name> spec` → Just create/view spec
 - `<name> yolo` → Full auto, no checkpoints
@@ -34,10 +71,23 @@ The input format is: `<epic-name> [mode]`
 
 **Examples:**
 - `list` → list all epics
+- `config view` → show config
 - `my-feature` → default mode
 - `my-feature spec` → spec only
 - `my-feature yolo` → full auto
 - `my-feature status` → show status
+
+---
+
+## Mode: config
+
+Handle config subcommands using the `epic_config` tool:
+
+- `config view` → Call `epic_config(action: "view")` and display the result
+- `config init` → Call `epic_config(action: "init")` and confirm creation
+- `config reset` → Call `epic_config(action: "reset")` and confirm reset
+
+After the tool returns, display the result in a user-friendly format.
 
 ---
 
@@ -309,7 +359,7 @@ Wait for confirmation. On "yes" or similar:
 Tasks with satisfied dependencies can be executed in **parallel** (the `available` list from `get_available_tasks` shows all tasks that are ready). Tasks whose dependencies aren't met yet are in the `blocked` list and must wait.
 
 For each task in the `available` list:
-1. Call `build_task_context(epicName, taskId, basePath?)` to get the prompt
+1. Call `build_task_context(epicName, taskId)` to get the prompt
 2. Call the Task tool with the prompt to spawn a sub-agent
 3. After sub-agent(s) complete, call `get_available_tasks` again to refresh the list
 4. If a task isn't done, retry up to 3 times, then mark blocked
@@ -383,9 +433,9 @@ This tells the Epic plugin to automatically continue the session when you finish
 
 Tasks with satisfied dependencies can be executed in **parallel** if desired.
 
-1. Call `get_available_tasks(epicName, basePath?)` to get the list of ready tasks
+1. Call `get_available_tasks(epicName)` to get the list of ready tasks
 2. For each task in the `available` list (can parallelize):
-   - Call `build_task_context(epicName, taskId, basePath?)` to get the prompt
+   - Call `build_task_context(epicName, taskId)` to get the prompt
    - Call the Task tool with the prompt to spawn a sub-agent
 3. After sub-agent(s) complete, call `get_available_tasks` again to refresh
 4. If a task isn't done, retry up to 3 times, then mark blocked
@@ -609,7 +659,153 @@ Track epic progress in `.epics/<name>/.state`:
 **Yolo fields:**
 - `active`: Set to `true` when yolo mode starts, `false` when complete or stopped
 - `iteration`: Current iteration count (plugin increments this on each continuation)
-- `maxIterations`: Safety limit (default 100). Set to 0 for unlimited.
+- `maxIterations`: Safety limit. Use the value from config (`yolo.defaultMaxIterations`). Set to 0 for unlimited.
 - `startedAt`: ISO timestamp when yolo mode was activated
 
 Update this file after each phase completes. The Epic plugin reads this file to determine whether to auto-continue.
+
+---
+
+## Configuration
+
+Epic workflow settings are stored in `.epics/config.jsonc`. The config is automatically created with safe defaults when you first create an epic.
+
+**Config locations (merged in order):**
+1. `~/.config/epic-workflow/config.jsonc` - Global user defaults
+2. `.epics/config.jsonc` - Project settings (commit this)
+3. `.epics/config.local.jsonc` - Personal overrides (gitignored)
+
+**Use the `get_epic_config` tool** to read current config settings.
+
+**Use the `epic_config` tool** to view or manage config:
+- `epic_config(action: "view")` - Show current config and sources
+- `epic_config(action: "init")` - Create config if it doesn't exist
+- `epic_config(action: "reset")` - Reset config to defaults
+
+### Config Schema
+
+```jsonc
+{
+  "execution": {
+    "maxRetries": 3           // Retries for failed tasks before marking blocked
+  },
+  "git": {
+    "completionMode": "none", // "pr" | "commit" | "none"
+    "branchPrefix": "epic/",  // Branch naming prefix
+    "autoPush": true          // Auto-push when completionMode is "pr"
+  },
+  "yolo": {
+    "defaultMaxIterations": 100  // Default max iterations (0 = unlimited)
+  }
+}
+```
+
+### Completion Modes
+
+The `git.completionMode` setting controls what happens when an epic completes:
+
+- **`"none"`** (default, safest): No git operations. You manage git entirely.
+- **`"commit"`**: Create a branch and commits, but don't push. You handle push/PR.
+- **`"pr"`**: Create branch, commits, push, and open a PR via `gh` CLI.
+
+---
+
+## Epic Completion
+
+When all tasks are done and the epic is complete, follow this completion flow based on the config:
+
+### Step 1: Check config
+
+Call `get_epic_config()` to read the current `git.completionMode`.
+
+### Step 2: Execute completion based on mode
+
+**If `git.completionMode` is `"none"`:**
+- Update `.state` with `executeComplete: true`
+- Report completion to user:
+  > "Epic complete! All X tasks finished.
+  > 
+  > Changes have been made but not committed. You can review and commit them manually."
+
+**If `git.completionMode` is `"commit"`:**
+1. Create a new branch if not already on one:
+   ```bash
+   git checkout -b {branchPrefix}{epicName}
+   ```
+2. Stage and commit all changes:
+   ```bash
+   git add -A
+   git commit -m "feat: {epic goal summary}"
+   ```
+3. Update `.state` with `executeComplete: true`
+4. Report completion:
+   > "Epic complete! All X tasks finished.
+   > 
+   > Changes committed to branch `{branchPrefix}{epicName}`.
+   > Push and create a PR when ready:
+   > ```
+   > git push -u origin {branchPrefix}{epicName}
+   > gh pr create
+   > ```"
+
+**If `git.completionMode` is `"pr"`:**
+1. Create a new branch if not already on one:
+   ```bash
+   git checkout -b {branchPrefix}{epicName}
+   ```
+2. Stage and commit all changes:
+   ```bash
+   git add -A
+   git commit -m "feat: {epic goal summary}"
+   ```
+3. Check if `gh` CLI is available:
+   ```bash
+   which gh
+   ```
+4. **If `gh` is available and `autoPush` is true:**
+   ```bash
+   git push -u origin {branchPrefix}{epicName}
+   gh pr create --title "{epic goal}" --body "## Summary\n\n{epic description}\n\n## Tasks Completed\n\n{task list}"
+   ```
+   Report:
+   > "Epic complete! All X tasks finished.
+   > 
+   > PR created: {PR URL}"
+
+5. **If `gh` is NOT available:**
+   Report:
+   > "Epic complete! All X tasks finished.
+   > 
+   > Changes committed to branch `{branchPrefix}{epicName}`.
+   > 
+   > Note: GitHub CLI (`gh`) not found. Install it to enable automatic PR creation:
+   > - macOS: `brew install gh`
+   > - Then: `gh auth login`
+   > 
+   > To create a PR manually:
+   > ```
+   > git push -u origin {branchPrefix}{epicName}
+   > gh pr create
+   > ```"
+
+### Commit Message Format
+
+Use conventional commits format for the commit message:
+- `feat: {epic goal}` for new features
+- `fix: {epic goal}` for bug fixes
+- `refactor: {epic goal}` for refactoring
+
+Include a brief body with the tasks completed if helpful.
+
+---
+
+## First Epic Setup
+
+When creating the first epic in a project (when `.epics/` doesn't exist):
+
+1. Create `.epics/` directory
+2. Create `.epics/config.jsonc` with default settings
+3. Create `.epics/.gitignore` containing `config.local.jsonc`
+4. Create the epic directory `.epics/{epicName}/`
+
+This ensures config is always present with safe defaults.

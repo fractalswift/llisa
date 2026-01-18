@@ -36,6 +36,86 @@ interface EpicState {
   yolo?: YoloState
 }
 
+// ----------------------------------------------------------------------------
+// Epic Configuration Types
+// ----------------------------------------------------------------------------
+
+type GitCompletionMode = "pr" | "commit" | "none"
+
+interface EpicConfigExecution {
+  maxRetries: number
+}
+
+interface EpicConfigGit {
+  completionMode: GitCompletionMode
+  branchPrefix: string
+  autoPush: boolean
+}
+
+interface EpicConfigYolo {
+  defaultMaxIterations: number
+}
+
+interface EpicConfig {
+  execution: EpicConfigExecution
+  git: EpicConfigGit
+  yolo: EpicConfigYolo
+}
+
+// Default configuration (most cautious)
+const DEFAULT_CONFIG: EpicConfig = {
+  execution: {
+    maxRetries: 3,
+  },
+  git: {
+    completionMode: "none",
+    branchPrefix: "epic/",
+    autoPush: true,
+  },
+  yolo: {
+    defaultMaxIterations: 100,
+  },
+}
+
+// Default config file content with comments
+const DEFAULT_CONFIG_CONTENT = `{
+  // Epic Workflow Configuration
+  // 
+  // Merge order: ~/.config/epic-workflow/config.jsonc -> .epics/config.jsonc -> .epics/config.local.jsonc
+  // Override locally (gitignored) with: .epics/config.local.jsonc
+
+  "execution": {
+    // Number of retries for failed tasks before stopping
+    "maxRetries": 3
+  },
+
+  "git": {
+    // How the epic completes when all tasks are done:
+    //   "pr"     - Create branch, commit, push, and open PR (requires \`gh\` CLI)
+    //   "commit" - Create commits only, you handle push/PR manually  
+    //   "none"   - No git operations, you manage everything
+    "completionMode": "none",
+
+    // Branch naming prefix (e.g., "epic/my-feature")
+    "branchPrefix": "epic/",
+
+    // When completionMode is "pr": automatically push and create PR
+    // Set false to review commits before pushing
+    "autoPush": true
+  },
+
+  "yolo": {
+    // Maximum iterations in yolo mode before pausing (0 = unlimited)
+    "defaultMaxIterations": 100
+  }
+}
+`
+
+// .gitignore content for .epics directory
+const EPICS_GITIGNORE_CONTENT = `# Local config overrides (not committed)
+config.local.jsonc
+`
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -50,6 +130,227 @@ async function readFileIfExists(path: string): Promise<string> {
   } catch {
     return ""
   }
+}
+
+/**
+ * Strip JSON comments (single-line // and multi-line block comments) from a string
+ * Simple state-machine approach - handles most common cases
+ */
+function stripJsonComments(jsonc: string): string {
+  // Remove single-line comments (// ...)
+  // Be careful not to match // inside strings
+  let result = ""
+  let inString = false
+  let inSingleLineComment = false
+  let inMultiLineComment = false
+  let i = 0
+
+  while (i < jsonc.length) {
+    const char = jsonc[i]
+    const nextChar = jsonc[i + 1]
+
+    // Handle string boundaries
+    if (!inSingleLineComment && !inMultiLineComment && char === '"' && jsonc[i - 1] !== "\\") {
+      inString = !inString
+      result += char
+      i++
+      continue
+    }
+
+    // Skip content inside strings
+    if (inString) {
+      result += char
+      i++
+      continue
+    }
+
+    // Check for comment start
+    if (!inSingleLineComment && !inMultiLineComment && char === "/" && nextChar === "/") {
+      inSingleLineComment = true
+      i += 2
+      continue
+    }
+
+    if (!inSingleLineComment && !inMultiLineComment && char === "/" && nextChar === "*") {
+      inMultiLineComment = true
+      i += 2
+      continue
+    }
+
+    // Check for comment end
+    if (inSingleLineComment && (char === "\n" || char === "\r")) {
+      inSingleLineComment = false
+      result += char
+      i++
+      continue
+    }
+
+    if (inMultiLineComment && char === "*" && nextChar === "/") {
+      inMultiLineComment = false
+      i += 2
+      continue
+    }
+
+    // Skip comment content
+    if (inSingleLineComment || inMultiLineComment) {
+      i++
+      continue
+    }
+
+    result += char
+    i++
+  }
+
+  return result
+}
+
+/**
+ * Deep merge two objects, with source overwriting target for matching keys
+ */
+function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
+  const result = { ...target }
+
+  for (const key of Object.keys(source) as Array<keyof T>) {
+    const sourceValue = source[key]
+    const targetValue = target[key]
+
+    if (
+      sourceValue !== undefined &&
+      typeof sourceValue === "object" &&
+      sourceValue !== null &&
+      !Array.isArray(sourceValue) &&
+      typeof targetValue === "object" &&
+      targetValue !== null &&
+      !Array.isArray(targetValue)
+    ) {
+      result[key] = deepMerge(targetValue, sourceValue as any)
+    } else if (sourceValue !== undefined) {
+      result[key] = sourceValue as T[keyof T]
+    }
+  }
+
+  return result
+}
+
+/**
+ * Validate and sanitize config, logging warnings for invalid values
+ */
+function validateConfig(config: Partial<EpicConfig>, logWarning: (msg: string) => void): EpicConfig {
+  const result = deepMerge(DEFAULT_CONFIG, config)
+
+  // Validate execution.maxRetries
+  if (typeof result.execution.maxRetries !== "number" || result.execution.maxRetries < 0) {
+    logWarning(`Invalid execution.maxRetries: ${result.execution.maxRetries}. Using default: ${DEFAULT_CONFIG.execution.maxRetries}`)
+    result.execution.maxRetries = DEFAULT_CONFIG.execution.maxRetries
+  }
+
+  // Validate git.completionMode
+  const validModes: GitCompletionMode[] = ["pr", "commit", "none"]
+  if (!validModes.includes(result.git.completionMode)) {
+    logWarning(`Invalid git.completionMode: "${result.git.completionMode}". Using default: "${DEFAULT_CONFIG.git.completionMode}"`)
+    result.git.completionMode = DEFAULT_CONFIG.git.completionMode
+  }
+
+  // Validate git.branchPrefix
+  if (typeof result.git.branchPrefix !== "string" || result.git.branchPrefix.length === 0) {
+    logWarning(`Invalid git.branchPrefix: "${result.git.branchPrefix}". Using default: "${DEFAULT_CONFIG.git.branchPrefix}"`)
+    result.git.branchPrefix = DEFAULT_CONFIG.git.branchPrefix
+  }
+
+  // Validate git.autoPush
+  if (typeof result.git.autoPush !== "boolean") {
+    logWarning(`Invalid git.autoPush: ${result.git.autoPush}. Using default: ${DEFAULT_CONFIG.git.autoPush}`)
+    result.git.autoPush = DEFAULT_CONFIG.git.autoPush
+  }
+
+  // Validate yolo.defaultMaxIterations
+  if (typeof result.yolo.defaultMaxIterations !== "number" || result.yolo.defaultMaxIterations < 0) {
+    logWarning(`Invalid yolo.defaultMaxIterations: ${result.yolo.defaultMaxIterations}. Using default: ${DEFAULT_CONFIG.yolo.defaultMaxIterations}`)
+    result.yolo.defaultMaxIterations = DEFAULT_CONFIG.yolo.defaultMaxIterations
+  }
+
+  return result
+}
+
+/**
+ * Load config from a JSONC file
+ */
+async function loadConfigFile(path: string): Promise<Partial<EpicConfig> | null> {
+  if (!existsSync(path)) return null
+
+  try {
+    const content = await readFile(path, "utf-8")
+    const stripped = stripJsonComments(content)
+    return JSON.parse(stripped) as Partial<EpicConfig>
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Load and merge config from all sources
+ * Order: global -> project -> project-local
+ */
+async function loadConfig(directory: string, logWarning: (msg: string) => void): Promise<EpicConfig> {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || ""
+  
+  // Config file paths
+  const globalConfigPath = join(homeDir, ".config", "epic-workflow", "config.jsonc")
+  const projectConfigPath = join(directory, ".epics", "config.jsonc")
+  const localConfigPath = join(directory, ".epics", "config.local.jsonc")
+
+  // Load configs in order
+  const globalConfig = await loadConfigFile(globalConfigPath)
+  const projectConfig = await loadConfigFile(projectConfigPath)
+  const localConfig = await loadConfigFile(localConfigPath)
+
+  // Merge configs
+  let merged: Partial<EpicConfig> = {}
+  
+  if (globalConfig) {
+    merged = deepMerge(merged as EpicConfig, globalConfig)
+  }
+  if (projectConfig) {
+    merged = deepMerge(merged as EpicConfig, projectConfig)
+  }
+  if (localConfig) {
+    merged = deepMerge(merged as EpicConfig, localConfig)
+  }
+
+  // Validate and return
+  return validateConfig(merged, logWarning)
+}
+
+/**
+ * Ensure .epics directory exists with config files
+ */
+async function ensureEpicsDirectory(directory: string): Promise<{ created: boolean; configCreated: boolean }> {
+  const epicsDir = join(directory, ".epics")
+  const configPath = join(epicsDir, "config.jsonc")
+  const gitignorePath = join(epicsDir, ".gitignore")
+
+  let created = false
+  let configCreated = false
+
+  // Create .epics directory if needed
+  if (!existsSync(epicsDir)) {
+    const { mkdir } = await import("fs/promises")
+    await mkdir(epicsDir, { recursive: true })
+    created = true
+  }
+
+  // Create config.jsonc if it doesn't exist
+  if (!existsSync(configPath)) {
+    await writeFile(configPath, DEFAULT_CONFIG_CONTENT, "utf-8")
+    configCreated = true
+  }
+
+  // Create .gitignore if it doesn't exist
+  if (!existsSync(gitignorePath)) {
+    await writeFile(gitignorePath, EPICS_GITIGNORE_CONTENT, "utf-8")
+  }
+
+  return { created, configCreated }
 }
 
 /**
@@ -165,6 +466,7 @@ async function updateEpicState(
 
 /**
  * Send a desktop notification (cross-platform)
+ * Fails silently if notifications aren't available
  */
 async function notify($: any, title: string, message: string): Promise<void> {
   try {
@@ -175,8 +477,7 @@ async function notify($: any, title: string, message: string): Promise<void> {
       // Linux
       await $`notify-send "${title}" "${message}"`.quiet()
     } catch {
-      // Fallback: just log
-      console.log(`[${title}] ${message}`)
+      // Silently fail - don't pollute the UI with console.log
     }
   }
 }
@@ -276,12 +577,9 @@ export const EpicWorkflowPlugin: Plugin = async ({ directory, client, $ }) => {
 
 Returns a list of all epics in .epics/ with their phase and task progress.
 Much faster than manually reading files.`,
-        args: {
-          basePath: tool.schema.string().optional().describe("Base path if epics are in a subdirectory (e.g., 'weather-app'). Omit for project root."),
-        },
-        async execute(args) {
-          const baseDir = args.basePath ? join(directory, args.basePath) : directory
-          const epicsDir = join(baseDir, ".epics")
+        args: {},
+        async execute() {
+          const epicsDir = join(directory, ".epics")
 
           if (!existsSync(epicsDir)) {
             return JSON.stringify({
@@ -332,7 +630,7 @@ Much faster than manually reading files.`,
               // Get task stats if in execute phase
               let tasks: { done: number; total: number } | null = null
               if (phase === "execute") {
-                const stats = await getTaskStats(baseDir, entry.name)
+                const stats = await getTaskStats(directory, entry.name)
                 tasks = { done: stats.done, total: stats.total }
               }
 
@@ -356,12 +654,10 @@ Returns phase, artifacts, task breakdown, and available actions.
 Much faster than manually reading multiple files.`,
         args: {
           epicName: tool.schema.string().describe("Name of the epic"),
-          basePath: tool.schema.string().optional().describe("Base path if epic is in a subdirectory (e.g., 'weather-app'). Omit for project root."),
         },
         async execute(args) {
-          const { epicName, basePath } = args
-          const baseDir = basePath ? join(directory, basePath) : directory
-          const epicDir = join(baseDir, ".epics", epicName)
+          const { epicName } = args
+          const epicDir = join(directory, ".epics", epicName)
 
           if (!existsSync(epicDir)) {
             return JSON.stringify({
@@ -391,7 +687,7 @@ Much faster than manually reading multiple files.`,
           }
 
           // Get task stats
-          const taskStats = await getTaskStats(baseDir, epicName)
+          const taskStats = await getTaskStats(directory, epicName)
 
           // Determine current phase
           let currentPhase = state?.currentPhase || "unknown"
@@ -441,12 +737,10 @@ Much faster than manually reading multiple files.`,
 Returns tasks that are pending/in-progress and have all dependencies completed.`,
         args: {
           epicName: tool.schema.string().describe("Name of the epic"),
-          basePath: tool.schema.string().optional().describe("Base path if epic is in a subdirectory (e.g., 'weather-app'). Omit for project root."),
         },
         async execute(args) {
-          const { epicName, basePath } = args
-          const baseDir = basePath ? join(directory, basePath) : directory
-          const epicDir = join(baseDir, ".epics", epicName)
+          const { epicName } = args
+          const epicDir = join(directory, ".epics", epicName)
           const tasksDir = join(epicDir, "tasks")
 
           if (!existsSync(tasksDir)) {
@@ -458,7 +752,7 @@ Returns tasks that are pending/in-progress and have all dependencies completed.`
           }
 
           // Get all task files
-          const taskFiles = await getTaskFiles(baseDir, epicName)
+          const taskFiles = await getTaskFiles(directory, epicName)
           if (taskFiles.length === 0) {
             return JSON.stringify({
               available: [],
@@ -468,7 +762,7 @@ Returns tasks that are pending/in-progress and have all dependencies completed.`
           }
 
           // Parse dependencies
-          const dependencies = await parseDependencies(baseDir, epicName)
+          const dependencies = await parseDependencies(directory, epicName)
 
           // Read task statuses
           const taskStatuses = new Map<string, string>()
@@ -529,12 +823,10 @@ Use this before calling the Task tool for each task execution.`,
           taskId: tool.schema
             .string()
             .describe("Task ID - the number prefix like '01', '02', etc."),
-          basePath: tool.schema.string().optional().describe("Base path if epic is in a subdirectory (e.g., 'weather-app'). Omit for project root."),
         },
         async execute(args) {
-          const { epicName, taskId, basePath } = args
-          const baseDir = basePath ? join(directory, basePath) : directory
-          const epicDir = join(baseDir, ".epics", epicName)
+          const { epicName, taskId } = args
+          const epicDir = join(directory, ".epics", epicName)
           const tasksDir = join(epicDir, "tasks")
 
           // Verify epic exists
@@ -558,7 +850,7 @@ Use this before calling the Task tool for each task execution.`,
           }
 
           // Find the task file
-          const taskFiles = await getTaskFiles(baseDir, epicName)
+          const taskFiles = await getTaskFiles(directory, epicName)
           const taskFile = taskFiles.find((f) => f.startsWith(taskId))
 
           if (!taskFile) {
@@ -669,6 +961,126 @@ ${taskContent}
           }, null, 2)
         },
       }),
+
+      // ----------------------------------------------------------------------
+      // epic_config - View and manage epic configuration
+      // ----------------------------------------------------------------------
+      epic_config: tool({
+        description: `View or reset epic configuration.
+
+Actions:
+- "view": Show current merged configuration and where values come from
+- "reset": Reset project config to defaults (creates .epics/config.jsonc)
+- "init": Initialize config if it doesn't exist (non-destructive)`,
+        args: {
+          action: tool.schema.enum(["view", "reset", "init"]).describe("Action to perform"),
+        },
+        async execute(args) {
+          const { action } = args
+          const epicsDir = join(directory, ".epics")
+          const configPath = join(epicsDir, "config.jsonc")
+          const localConfigPath = join(epicsDir, "config.local.jsonc")
+          const homeDir = process.env.HOME || process.env.USERPROFILE || ""
+          const globalConfigPath = join(homeDir, ".config", "epic-workflow", "config.jsonc")
+
+          const logWarning = (msg: string) => {
+            client.app.log({
+              service: "epic-plugin",
+              level: "warn",
+              message: msg,
+            })
+          }
+
+          if (action === "view") {
+            // Load config and show sources
+            const config = await loadConfig(directory, logWarning)
+            
+            const sources: string[] = []
+            if (existsSync(globalConfigPath)) sources.push(`Global: ${globalConfigPath}`)
+            if (existsSync(configPath)) sources.push(`Project: ${configPath}`)
+            if (existsSync(localConfigPath)) sources.push(`Local: ${localConfigPath}`)
+            if (sources.length === 0) sources.push("(Using defaults - no config files found)")
+
+            return JSON.stringify({
+              config,
+              sources,
+              paths: {
+                global: globalConfigPath,
+                project: configPath,
+                local: localConfigPath,
+              },
+            }, null, 2)
+          }
+
+          if (action === "reset") {
+            // Ensure directory exists and reset config
+            const { mkdir } = await import("fs/promises")
+            if (!existsSync(epicsDir)) {
+              await mkdir(epicsDir, { recursive: true })
+            }
+
+            await writeFile(configPath, DEFAULT_CONFIG_CONTENT, "utf-8")
+            
+            // Also ensure .gitignore exists
+            const gitignorePath = join(epicsDir, ".gitignore")
+            if (!existsSync(gitignorePath)) {
+              await writeFile(gitignorePath, EPICS_GITIGNORE_CONTENT, "utf-8")
+            }
+
+            return JSON.stringify({
+              success: true,
+              message: "Config reset to defaults",
+              path: configPath,
+              tip: "Edit .epics/config.jsonc to customize settings. Create .epics/config.local.jsonc for personal overrides (gitignored).",
+            }, null, 2)
+          }
+
+          if (action === "init") {
+            const result = await ensureEpicsDirectory(directory)
+
+            if (result.configCreated) {
+              return JSON.stringify({
+                success: true,
+                message: "Config initialized with defaults",
+                path: configPath,
+                tip: "Edit .epics/config.jsonc to customize settings. Create .epics/config.local.jsonc for personal overrides (gitignored).",
+              }, null, 2)
+            } else {
+              return JSON.stringify({
+                success: true,
+                message: "Config already exists",
+                path: configPath,
+                tip: "Use action 'reset' to overwrite with defaults, or 'view' to see current config.",
+              }, null, 2)
+            }
+          }
+
+          return JSON.stringify({ success: false, error: `Unknown action: ${action}` }, null, 2)
+        },
+      }),
+
+      // ----------------------------------------------------------------------
+      // get_epic_config - Get current config for use by other tools/skills
+      // ----------------------------------------------------------------------
+      get_epic_config: tool({
+        description: `Get the current epic configuration.
+
+Returns the merged configuration from all sources (global, project, local).
+Use this to check settings like git.completionMode before performing actions.`,
+        args: {},
+        async execute() {
+          const logWarning = (msg: string) => {
+            client.app.log({
+              service: "epic-plugin",
+              level: "warn",
+              message: msg,
+            })
+          }
+
+          const config = await loadConfig(directory, logWarning)
+          return JSON.stringify({ config }, null, 2)
+        },
+      }),
     },
 
     // ========================================================================
@@ -679,9 +1091,23 @@ ${taskContent}
 
       const sessionId = (event as any).properties?.sessionID
 
+      // Debug: log the event
+      await client.app.log({
+        service: "epic-plugin",
+        level: "info",
+        message: `session.idle event received. sessionId: ${sessionId || "UNDEFINED"}`,
+      })
+
       // Find active yolo epic
       const activeEpic = await findActiveYoloEpic(directory)
-      if (!activeEpic) return
+      if (!activeEpic) {
+        await client.app.log({
+          service: "epic-plugin",
+          level: "info",
+          message: "No active yolo epic found",
+        })
+        return
+      }
 
       const { name: epicName, state } = activeEpic
       const yolo = state.yolo!
@@ -743,15 +1169,35 @@ ${taskContent}
 
       // Send continuation prompt
       if (sessionId) {
-        await client.session.send({
-          id: sessionId,
-          text: `Continue executing epic "${epicName}". ${remaining} task(s) remaining. [Iteration ${nextIteration}${yolo.maxIterations > 0 ? `/${yolo.maxIterations}` : ""}]`,
-        })
-
         await client.app.log({
           service: "epic-plugin",
           level: "info",
-          message: `Epic "${epicName}" continuing: iteration ${nextIteration}, ${remaining} tasks remaining`,
+          message: `Sending continuation prompt for "${epicName}" to session ${sessionId}`,
+        })
+        
+        try {
+          await client.session.send({
+            id: sessionId,
+            text: `Continue executing epic "${epicName}". ${remaining} task(s) remaining. [Iteration ${nextIteration}${yolo.maxIterations > 0 ? `/${yolo.maxIterations}` : ""}]`,
+          })
+
+          await client.app.log({
+            service: "epic-plugin",
+            level: "info",
+            message: `Epic "${epicName}" continuing: iteration ${nextIteration}, ${remaining} tasks remaining`,
+          })
+        } catch (err) {
+          await client.app.log({
+            service: "epic-plugin",
+            level: "error",
+            message: `Failed to send continuation: ${err}`,
+          })
+        }
+      } else {
+        await client.app.log({
+          service: "epic-plugin",
+          level: "warn",
+          message: `No sessionId available - cannot continue epic "${epicName}"`,
         })
       }
     },

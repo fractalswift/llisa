@@ -1,5 +1,5 @@
 ---
-description: Unified epic workflow - plan and execute large features
+description: Epic workflow - plan and execute large features (/epic help for commands)
 ---
 
 $ARGUMENTS
