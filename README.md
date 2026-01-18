@@ -58,13 +58,15 @@ Config lives in `.lisa/config.jsonc`:
 ```jsonc
 {
   "git": {
-    "completionMode": "none"  // "none" | "commit" | "pr"
+    "completionMode": "none", // "none" | "commit" | "pr"
   },
   "yolo": {
-    "defaultMaxIterations": 100
-  }
+    "defaultMaxIterations": 100,
+  },
 }
 ```
+
+In default mode, Lisa does NOT make commits or PRs. If you want to make commits you'll need git set up, and if you want to make PRs you'll need the github cli set up.
 
 ## License
 
