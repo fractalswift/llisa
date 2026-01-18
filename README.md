@@ -27,7 +27,15 @@ The **Ralph Wiggum pattern** is a simple bash loop that keeps feeding prompts to
 npm install opencode-lisa
 ```
 
-Requires [OpenCode](https://opencode.ai).
+Add to your `opencode.json`:
+
+```json
+{
+  "plugin": ["opencode-lisa"]
+}
+```
+
+Restart OpenCode. Requires [OpenCode](https://opencode.ai).
 
 ## Usage
 
