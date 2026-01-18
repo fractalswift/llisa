@@ -1,5 +1,6 @@
 ---
 description: Lisa - intelligent epic workflow (/lisa help for commands)
+agent: general
 ---
 
 $ARGUMENTS
