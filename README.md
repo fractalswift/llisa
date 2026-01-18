@@ -4,6 +4,8 @@
 
 An intelligent epic workflow plugin for [OpenCode](https://opencode.ai). Like the Ralph Wiggum pattern, but smarter.
 
+**Latest version: 0.2.0** - Now fully self-contained for npm installation!
+
 ## Why Lisa?
 
 The **Ralph Wiggum pattern** is a simple bash loop that keeps feeding prompts to an AI agent until completion. It works, but:
