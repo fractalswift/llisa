@@ -26,18 +26,33 @@ The **Ralph Wiggum pattern** is a simple bash loop that keeps feeding prompts to
 ## Install
 
 ```bash
-npm install opencode-lisa
+npm install -D opencode-lisa
+npx opencode-lisa init
 ```
 
-Add to your `opencode.json`:
+This will:
+- Install command and skill files to `.opencode/`
+- Add the plugin to your `opencode.json`
+- Set up Lisa for use in your project
+
+Requires [OpenCode](https://opencode.ai) 1.0+.
+
+### Global Installation
+
+To install Lisa globally for all projects:
+
+```bash
+npm install -g opencode-lisa
+npx opencode-lisa init --global
+```
+
+Add to your global `~/.config/opencode/opencode.json`:
 
 ```json
 {
   "plugin": ["opencode-lisa"]
 }
 ```
-
-Restart OpenCode. Requires [OpenCode](https://opencode.ai).
 
 ## Usage
 
