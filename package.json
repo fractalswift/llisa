@@ -7,15 +7,9 @@
   "bin": {
     "opencode-lisa": "./bin/cli.js"
   },
-  "exports": {
-    ".": {
-      "import": "./dist/index.js"
-    }
-  },
   "files": [
     "dist",
-    "bin",
-    "assets"
+    "bin"
   ],
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun --format esm",
@@ -45,14 +39,8 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.0.0"
-  },
   "devDependencies": {
     "@opencode-ai/plugin": "^1.1.25",
     "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "opencode-lisa": "^0.2.1"
   }
 }

@@ -4,7 +4,7 @@
 
 An intelligent epic workflow plugin for [OpenCode](https://opencode.ai). Like the Ralph Wiggum pattern, but smarter.
 
-**Latest version: 0.2.0** - Now fully self-contained for npm installation!
+**Latest version: 0.3.0** - Simplified one-command installation!
 
 ## Why Lisa?
 
@@ -25,31 +25,33 @@ The **Ralph Wiggum pattern** is a simple bash loop that keeps feeding prompts to
 
 ## Install
 
+One command to install Lisa in your project:
+
 ```bash
-npm install -D opencode-lisa
-npx opencode-lisa init
+npx opencode-lisa --opencode
 ```
 
-This will:
-- Install command and skill files to `.opencode/`
-- Add the plugin to your `opencode.json`
-- Set up Lisa for use in your project
+Or with Bun:
+
+```bash
+bunx opencode-lisa --opencode
+```
+
+This creates an `opencode.json` file with Lisa configured. The plugin will be automatically downloaded by OpenCode when you start it.
 
 Requires [OpenCode](https://opencode.ai) 1.0+.
 
 ### Global Installation
 
-To install Lisa globally for all projects:
+To use Lisa in all your projects, add to your global OpenCode config:
 
 ```bash
-npm install -g opencode-lisa
-npx opencode-lisa init --global
+# Create or edit ~/.config/opencode/opencode.json
 ```
-
-Add to your global `~/.config/opencode/opencode.json`:
 
 ```json
 {
+  "$schema": "https://opencode.ai/config.json",
   "plugin": ["opencode-lisa"]
 }
 ```

@@ -1,11 +1,18 @@
 # Lisa data (created per-project, not part of plugin)
 .lisa/
 
+# OpenCode config (created by installer)
+.opencode/
+
 # Build output
 dist/
 
 # Dependencies  
 node_modules/
+
+# Lock files
+bun.lock
+package-lock.json
 
 # Temp
 example.json
