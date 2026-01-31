@@ -48,8 +48,8 @@ async function checkOpenCodeInstalled() {
 
 function cleanupOldInstalls(targetDir) {
   // Remove old file-based installations from previous versions
+  // Note: We no longer clean up 'skills/lisa' since we install there now
   const oldPaths = [
-    join(targetDir, '.opencode', 'skills', 'lisa'),
     join(targetDir, '.opencode', 'skill', 'lisa'), // old singular path
     join(targetDir, '.opencode', 'command', 'lisa.md'), // old singular path
   ];
@@ -94,6 +94,29 @@ function installCommandFile(targetDir) {
   console.log(colors.green(`  Created: ${destPath}`));
 }
 
+function installSkillFile(targetDir) {
+  // Source: skill file in the npm package
+  const sourcePath = join(__dirname, '..', 'assets', 'skills', 'lisa', 'SKILL.md');
+  
+  // Destination: where OpenCode looks for skills
+  const destPath = join(targetDir, '.opencode', 'skills', 'lisa', 'SKILL.md');
+  
+  // Verify source file exists
+  if (!existsSync(sourcePath)) {
+    throw new Error(`Source skill file not found: ${sourcePath}`);
+  }
+  
+  // Create directory if needed
+  const destDir = dirname(destPath);
+  if (!existsSync(destDir)) {
+    mkdirSync(destDir, { recursive: true });
+  }
+  
+  // Copy file (overwrite if exists to ensure latest version)
+  copyFileSync(sourcePath, destPath);
+  console.log(colors.green(`  Created: ${destPath}`));
+}
+
 async function install(targetDir) {
   console.log('');
   console.log(colors.cyan('Lisa - Intelligent Epic Workflow Plugin'));
@@ -123,6 +146,18 @@ async function install(targetDir) {
     console.log(colors.dim(`  ${err.message}`));
     console.log('');
     console.log('Lisa cannot be installed without the command file.');
+    console.log('Please report this issue at https://github.com/fractalswift/lisa-simpson/issues');
+    process.exit(1);
+  }
+
+  // Install skill file for Lisa workflow logic
+  try {
+    installSkillFile(targetDir);
+  } catch (err) {
+    console.log(colors.red(`Error: Failed to install skill file.`));
+    console.log(colors.dim(`  ${err.message}`));
+    console.log('');
+    console.log('Lisa cannot be installed without the skill file.');
     console.log('Please report this issue at https://github.com/fractalswift/lisa-simpson/issues');
     process.exit(1);
   }
