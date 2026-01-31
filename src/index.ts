@@ -925,6 +925,24 @@ Execute the task described below. When complete:
 If you discover the task approach is wrong or future tasks need changes, you may update them.
 The plan is a living document.
 
+## CRITICAL CONSTRAINTS
+
+**File System Boundaries:**
+- Work ONLY within the project directory and its subdirectories
+- DO NOT access files outside the project root (no /tmp/, /private/, /var/, /etc/, or system directories)
+- DO NOT write to system temp directories (/tmp/, /private/tmp/, /var/tmp/, etc.)
+- For any temporary files or logs, use ONLY project-local directories:
+  - Create ./.tmp/ or ./logs/ within the project if needed
+  - Or use .lisa/epics/<epic-name>/tmp/ for epic-specific temp files
+- If a task genuinely requires system-level access, mark it as BLOCKED with explanation
+
+**Process & Network:**
+- You may start local development servers on localhost only
+- You may run tests, build commands, and package managers
+- You may read/write files within the project boundary
+
+**If you violate these constraints, the task will fail and require manual intervention.**
+
 ---
 
 ## Epic Spec
