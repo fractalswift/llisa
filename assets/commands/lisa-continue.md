@@ -5,8 +5,6 @@ agent: general
 
 **Arguments:** $ARGUMENTS
 
-Parse the epic name from arguments (join all words with hyphens if multi-word).
+Parse epic name: join all words with hyphens.
 
-Load the lisa skill and execute with:
-- Mode: "continue"
-- Epic name: (parsed name)
+Load the lisa-continue skill with the parsed epic name.

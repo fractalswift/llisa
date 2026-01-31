@@ -104,27 +104,43 @@ function installCommandFiles(targetDir) {
   }
 }
 
-function installSkillFile(targetDir) {
-  // Source: skill file in the npm package
-  const sourcePath = join(__dirname, '..', 'assets', 'skills', 'lisa', 'SKILL.md');
+function installSkillFiles(targetDir) {
+  // All skill directories to install
+  const skillDirs = [
+    'lisa-create-epic',
+    'lisa-continue',
+    'lisa-yolo',
+    'lisa-list-epics',
+    'lisa-epic-status',
+    'shared'
+  ];
   
-  // Destination: where OpenCode looks for skills
-  const destPath = join(targetDir, '.opencode', 'skills', 'lisa', 'SKILL.md');
+  const destBaseDir = join(targetDir, '.opencode', 'skills');
   
-  // Verify source file exists
-  if (!existsSync(sourcePath)) {
-    throw new Error(`Source skill file not found: ${sourcePath}`);
+  for (const skillDir of skillDirs) {
+    const sourcePath = join(__dirname, '..', 'assets', 'skills', skillDir, 'SKILL.md');
+    const destPath = join(destBaseDir, skillDir, 'SKILL.md');
+    
+    // For shared, use COMMON.md instead
+    const sourceFile = skillDir === 'shared' ? 'COMMON.md' : 'SKILL.md';
+    const actualSourcePath = join(__dirname, '..', 'assets', 'skills', skillDir, sourceFile);
+    const actualDestPath = join(destBaseDir, skillDir, sourceFile);
+    
+    // Verify source exists
+    if (!existsSync(actualSourcePath)) {
+      throw new Error(`Source skill file not found: ${actualSourcePath}`);
+    }
+    
+    // Create directory if needed
+    const destDir = dirname(actualDestPath);
+    if (!existsSync(destDir)) {
+      mkdirSync(destDir, { recursive: true });
+    }
+    
+    // Copy file
+    copyFileSync(actualSourcePath, actualDestPath);
+    console.log(colors.green(`  Created: ${actualDestPath}`));
   }
-  
-  // Create directory if needed
-  const destDir = dirname(destPath);
-  if (!existsSync(destDir)) {
-    mkdirSync(destDir, { recursive: true });
-  }
-  
-  // Copy file (overwrite if exists to ensure latest version)
-  copyFileSync(sourcePath, destPath);
-  console.log(colors.green(`  Created: ${destPath}`));
 }
 
 async function install(targetDir) {
@@ -160,14 +176,14 @@ async function install(targetDir) {
     process.exit(1);
   }
 
-  // Install skill file for Lisa workflow logic
+  // Install skill files for Lisa workflow logic
   try {
-    installSkillFile(targetDir);
+    installSkillFiles(targetDir);
   } catch (err) {
-    console.log(colors.red(`Error: Failed to install skill file.`));
+    console.log(colors.red(`Error: Failed to install skill files.`));
     console.log(colors.dim(`  ${err.message}`));
     console.log('');
-    console.log('Lisa cannot be installed without the skill file.');
+    console.log('Lisa cannot be installed without the skill files.');
     console.log('Please report this issue at https://github.com/fractalswift/lisa-simpson/issues');
     process.exit(1);
   }

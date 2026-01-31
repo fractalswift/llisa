@@ -5,13 +5,6 @@ agent: general
 
 **Arguments:** $ARGUMENTS
 
-Parse the epic name from arguments using smart parsing (join all words with hyphens).
+Parse epic name: join all words with hyphens (e.g., "initial setup" → "initial-setup").
 
-Examples:
-- "initial setup" → "initial-setup"
-- "auth-system" → "auth-system"
-- "my complex feature" → "my-complex-feature"
-
-Load the lisa skill and execute with:
-- Mode: "create-epic"
-- Epic name: (parsed name with hyphens)
+Load the lisa-create-epic skill with the parsed epic name.
