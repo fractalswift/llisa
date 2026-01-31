@@ -607,6 +607,10 @@ Much faster than manually reading files.`,
             const epics: Array<{
               name: string
               phase: string
+              specComplete: boolean
+              researchComplete: boolean
+              planComplete: boolean
+              executeComplete: boolean
               tasks: { done: number; total: number } | null
               yoloActive: boolean
             }> = []
@@ -617,6 +621,10 @@ Much faster than manually reading files.`,
               const statePath = join(epicsDir, entry.name, ".state")
               let phase = "unknown"
               let yoloActive = false
+              let specComplete = false
+              let researchComplete = false
+              let planComplete = false
+              let executeComplete = false
 
               if (existsSync(statePath)) {
                 try {
@@ -624,6 +632,10 @@ Much faster than manually reading files.`,
                   const state = JSON.parse(content) as EpicState
                   phase = state.currentPhase || "unknown"
                   yoloActive = state.yolo?.active || false
+                  specComplete = state.specComplete || false
+                  researchComplete = state.researchComplete || false
+                  planComplete = state.planComplete || false
+                  executeComplete = state.executeComplete || false
                 } catch {
                   phase = "unknown"
                 }
@@ -639,6 +651,11 @@ Much faster than manually reading files.`,
                 else if (hasResearch) phase = "research"
                 else if (hasSpec) phase = "spec"
                 else phase = "new"
+                
+                // Infer completion from file existence
+                specComplete = hasSpec
+                researchComplete = hasResearch
+                planComplete = hasPlan
               }
 
               // Get task stats if in execute phase
@@ -648,7 +665,16 @@ Much faster than manually reading files.`,
                 tasks = { done: stats.done, total: stats.total }
               }
 
-              epics.push({ name: entry.name, phase, tasks, yoloActive })
+              epics.push({ 
+                name: entry.name, 
+                phase, 
+                specComplete,
+                researchComplete,
+                planComplete,
+                executeComplete,
+                tasks, 
+                yoloActive 
+              })
             }
 
             return JSON.stringify({ epics }, null, 2)
