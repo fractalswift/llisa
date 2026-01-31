@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, writeFileSync, unlinkSync, rmSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync, unlinkSync, rmSync, copyFileSync, mkdirSync, statSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const PLUGIN_NAME = 'opencode-lisa';
 
@@ -43,18 +47,17 @@ async function checkOpenCodeInstalled() {
 }
 
 function cleanupOldInstalls(targetDir) {
-  // Remove old file-based installations
+  // Remove old file-based installations from previous versions
   const oldPaths = [
     join(targetDir, '.opencode', 'skills', 'lisa'),
-    join(targetDir, '.opencode', 'commands', 'lisa.md'),
-    join(targetDir, '.opencode', 'command', 'lisa.md'), // old singular path
     join(targetDir, '.opencode', 'skill', 'lisa'), // old singular path
+    join(targetDir, '.opencode', 'command', 'lisa.md'), // old singular path
   ];
 
   for (const oldPath of oldPaths) {
     try {
       if (existsSync(oldPath)) {
-        const stat = readFileSync(oldPath);
+        const stat = statSync(oldPath);
         if (stat.isDirectory()) {
           rmSync(oldPath, { recursive: true, force: true });
         } else {
@@ -66,6 +69,29 @@ function cleanupOldInstalls(targetDir) {
       // Ignore errors during cleanup
     }
   }
+}
+
+function installCommandFile(targetDir) {
+  // Source: command file in the npm package
+  const sourcePath = join(__dirname, '..', 'assets', 'commands', 'lisa.md');
+  
+  // Destination: where OpenCode looks for slash commands
+  const destPath = join(targetDir, '.opencode', 'commands', 'lisa.md');
+  
+  // Verify source file exists
+  if (!existsSync(sourcePath)) {
+    throw new Error(`Source command file not found: ${sourcePath}`);
+  }
+  
+  // Create directory if needed
+  const destDir = dirname(destPath);
+  if (!existsSync(destDir)) {
+    mkdirSync(destDir, { recursive: true });
+  }
+  
+  // Copy file (overwrite if exists to ensure latest version)
+  copyFileSync(sourcePath, destPath);
+  console.log(colors.green(`  Created: ${destPath}`));
 }
 
 async function install(targetDir) {
@@ -88,6 +114,18 @@ async function install(targetDir) {
 
   // Cleanup old file-based installs
   cleanupOldInstalls(targetDir);
+
+  // Install command file for slash command autocomplete
+  try {
+    installCommandFile(targetDir);
+  } catch (err) {
+    console.log(colors.red(`Error: Failed to install command file.`));
+    console.log(colors.dim(`  ${err.message}`));
+    console.log('');
+    console.log('Lisa cannot be installed without the command file.');
+    console.log('Please report this issue at https://github.com/fractalswift/lisa-simpson/issues');
+    process.exit(1);
+  }
 
   // Update or create opencode.json
   const configPath = join(targetDir, 'opencode.json');

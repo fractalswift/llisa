@@ -45,31 +45,33 @@ The input format is: \`<epic-name> [mode]\`
 
 ### If no arguments or \`help\`:
 
-If the user runs \`/lisa\` with no arguments, or \`/lisa help\`, immediately respond with this help menu (no tool calls needed):
+If the user runs \`/lisa\` with no arguments, or \`/lisa help\`, IMMEDIATELY output EXACTLY this text (verbatim, no modifications, no tool calls):
 
-\`\`\`
-Lisa - Intelligent Epic Workflow
+---
 
-Available Commands:
+**Lisa - Intelligent Epic Workflow**
 
-  /lisa list                - List all epics and their status
-  /lisa <name>              - Continue or create an epic (interactive)
-  /lisa <name> spec         - Create/view the spec only
-  /lisa <name> status       - Show detailed epic status
-  /lisa <name> yolo         - Auto-execute mode (no confirmations)
-  /lisa config view         - View current configuration
-  /lisa config init         - Initialize config with defaults
-  /lisa config reset        - Reset config to defaults
+**Available Commands:**
 
-Examples:
-  /lisa list                - See all your epics
-  /lisa auth-system         - Start or continue the auth-system epic
-  /lisa auth-system yolo    - Run auth-system in full auto mode
+\`/lisa list\` - List all epics and their status  
+\`/lisa <name>\` - Continue or create an epic (interactive)  
+\`/lisa <name> spec\` - Create/view the spec only  
+\`/lisa <name> status\` - Show detailed epic status  
+\`/lisa <name> yolo\` - Auto-execute mode (no confirmations)  
+\`/lisa config view\` - View current configuration  
+\`/lisa config init\` - Initialize config with defaults  
+\`/lisa config reset\` - Reset config to defaults  
 
-Get started: /lisa <epic-name>
-\`\`\`
+**Examples:**
+- \`/lisa list\` - See all your epics
+- \`/lisa auth-system\` - Start or continue the auth-system epic
+- \`/lisa auth-system yolo\` - Run auth-system in full auto mode
 
-**Stop here. Do not call any tools or do anything else.**
+**Get started:** \`/lisa <epic-name>\`
+
+---
+
+**CRITICAL: Output the above help text EXACTLY as shown. Do not add explanations, do not call tools, do not be creative. Just show the menu and stop.**
 
 ### Otherwise, parse the arguments:
 
