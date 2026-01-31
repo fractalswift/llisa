@@ -9,7 +9,22 @@ description: Continue an epic with interactive checkpoints
 
 Phases: Spec → Research → Plan → Execute
 
-## Step 1: Verify spec exists
+## Step 1: Check yolo status and verify spec exists
+
+**Check `.state` for yolo status:**
+
+If `yolo.active: true`:
+```
+Note: Yolo mode was active. Switching to interactive mode.
+```
+Update `.state`:
+```json
+{
+  "yolo": {
+    "active": false
+  }
+}
+```
 
 **If no spec:**
 ```

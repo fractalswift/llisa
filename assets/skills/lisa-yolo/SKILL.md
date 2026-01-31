@@ -36,10 +36,36 @@ STOP.
 
 ---
 
-## Activate Yolo in .state
+## Activate/Resume Yolo in .state
 
-Update `.lisa/epics/<name>/.state`:
+Read current `.state` to check if yolo was previously active.
 
+**If `yolo.active: true` already exists:**
+```
+Yolo mode was previously active (iteration ${currentIteration}).
+
+Resuming from current state:
+  ✓ Spec - ${specComplete ? 'complete' : 'not started'}
+  ${researchComplete ? '✓' : '○'} Research - ${researchComplete ? 'complete' : 'not started'}
+  ${planComplete ? '✓' : '○'} Plan - ${planComplete ? 'complete' : 'not started'}
+  ● Execute - ${completedTasks}/${totalTasks} tasks done
+
+Continuing yolo execution...
+```
+
+Increment iteration counter. Check if `iteration > maxIterations`:
+```
+Error: Max yolo iterations (${maxIterations}) reached.
+
+The epic may be stuck or too complex for fully automatic execution.
+
+Resume with:
+  • /lisa-continue <name> - Switch to interactive mode with checkpoints
+```
+STOP.
+
+**If yolo not active or new start:**
+Update `.state`:
 ```json
 {
   "yolo": {
