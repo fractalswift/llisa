@@ -71,27 +71,37 @@ function cleanupOldInstalls(targetDir) {
   }
 }
 
-function installCommandFile(targetDir) {
-  // Source: command file in the npm package
-  const sourcePath = join(__dirname, '..', 'assets', 'commands', 'lisa.md');
+function installCommandFiles(targetDir) {
+  // All Lisa command files to install
+  const commandFiles = [
+    'lisa-create-epic.md',
+    'lisa-list-epics.md',
+    'lisa-epic-status.md',
+    'lisa-continue.md',
+    'lisa-yolo.md',
+    'lisa-help.md'
+  ];
   
-  // Destination: where OpenCode looks for slash commands
-  const destPath = join(targetDir, '.opencode', 'commands', 'lisa.md');
-  
-  // Verify source file exists
-  if (!existsSync(sourcePath)) {
-    throw new Error(`Source command file not found: ${sourcePath}`);
-  }
-  
-  // Create directory if needed
-  const destDir = dirname(destPath);
+  // Create destination directory if needed
+  const destDir = join(targetDir, '.opencode', 'commands');
   if (!existsSync(destDir)) {
     mkdirSync(destDir, { recursive: true });
   }
   
-  // Copy file (overwrite if exists to ensure latest version)
-  copyFileSync(sourcePath, destPath);
-  console.log(colors.green(`  Created: ${destPath}`));
+  // Copy each command file
+  for (const file of commandFiles) {
+    const sourcePath = join(__dirname, '..', 'assets', 'commands', file);
+    const destPath = join(destDir, file);
+    
+    // Verify source file exists
+    if (!existsSync(sourcePath)) {
+      throw new Error(`Source command file not found: ${sourcePath}`);
+    }
+    
+    // Copy file (overwrite if exists to ensure latest version)
+    copyFileSync(sourcePath, destPath);
+    console.log(colors.green(`  Created: ${destPath}`));
+  }
 }
 
 function installSkillFile(targetDir) {
@@ -138,14 +148,14 @@ async function install(targetDir) {
   // Cleanup old file-based installs
   cleanupOldInstalls(targetDir);
 
-  // Install command file for slash command autocomplete
+  // Install command files for slash command autocomplete
   try {
-    installCommandFile(targetDir);
+    installCommandFiles(targetDir);
   } catch (err) {
-    console.log(colors.red(`Error: Failed to install command file.`));
+    console.log(colors.red(`Error: Failed to install command files.`));
     console.log(colors.dim(`  ${err.message}`));
     console.log('');
-    console.log('Lisa cannot be installed without the command file.');
+    console.log('Lisa cannot be installed without the command files.');
     console.log('Please report this issue at https://github.com/fractalswift/lisa-simpson/issues');
     process.exit(1);
   }

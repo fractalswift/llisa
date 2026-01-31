@@ -32,130 +32,151 @@ my-project/           <- run \`opencode\` from here
 
 ---
 
-## Parse Arguments
+## Mode Routing
 
-The input format is: \`<epic-name> [mode]\`
+The command files handle argument parsing and route to specific modes. You will receive one of these modes:
 
-### If no arguments or \`help\`:
+- **create-epic** (from `/lisa-create-epic <name>`)
+- **list-epics** (from `/lisa-list-epics`)
+- **epic-status** (from `/lisa-epic-status <name>`)
+- **continue** (from `/lisa-continue <name>`)
+- **yolo** (from `/lisa-yolo <name>`)
 
-If the user runs \`/lisa\` with no arguments, or \`/lisa help\`, IMMEDIATELY output EXACTLY this text (verbatim, no modifications, no tool calls):
-
----
-
-**Lisa - Intelligent Epic Workflow**
-
-**Available Commands:**
-
-\`/lisa list\` - List all epics and their status  
-\`/lisa <name>\` - Continue or create an epic (interactive)  
-\`/lisa <name> spec\` - Create/view the spec only  
-\`/lisa <name> status\` - Show detailed epic status  
-\`/lisa <name> yolo\` - Auto-execute mode (no confirmations)  
-\`/lisa config view\` - View current configuration  
-\`/lisa config init\` - Initialize config with defaults  
-\`/lisa config reset\` - Reset config to defaults  
-
-**Examples:**
-- \`/lisa list\` - See all your epics
-- \`/lisa auth-system\` - Start or continue the auth-system epic
-- \`/lisa auth-system yolo\` - Run auth-system in full auto mode
-
-**Get started:** \`/lisa <epic-name>\`
+Epic names use smart parsing: multi-word names are joined with hyphens (e.g., "initial setup" → "initial-setup").
 
 ---
 
-**CRITICAL: Output the above help text EXACTLY as shown. Do not add explanations, do not call tools, do not be creative. Just show the menu and stop.**
+## Mode: create-epic
 
-### Otherwise, parse the arguments with SMART PARSING:
+This mode creates a new epic and starts the interactive spec conversation.
 
-**CRITICAL PARSING RULES:**
+**Epic name:** Parse from arguments (already hyphenated by command file)
 
-The known modes are: \`list\`, \`config\`, \`spec\`, \`yolo\`, \`status\`
+### Steps:
 
-**Parse from RIGHT to LEFT:**
-1. Check if the LAST argument is a known mode (spec/yolo/status)
-2. If yes: everything BEFORE it = epic name (joined with hyphens), last arg = mode
-3. If no: check if FIRST argument is "list" or "config" (special modes)
-4. Otherwise: ALL arguments = epic name (joined with hyphens), mode = null (default)
+1. **Check if epic already exists:** Read `.lisa/epics/<name>/.state`
+   - If exists: Error "Epic '<name>' already exists. Use `/lisa-continue <name>` to resume or `/lisa-epic-status <name>` to see status."
+   - If not: Continue
 
-**Parsing Examples:**
-- \`initial setup\` → name: "initial-setup", mode: null
-- \`initial setup yolo\` → name: "initial-setup", mode: "yolo"
-- \`my complex feature spec\` → name: "my-complex-feature", mode: "spec"
-- \`auth system status\` → name: "auth-system", mode: "status"
-- \`list\` → mode: "list" (special, no epic name)
-- \`config view\` → mode: "config view" (special, no epic name)
-- \`my-feature\` → name: "my-feature", mode: null
+2. **Create epic structure:**
+   - Create directory: `.lisa/epics/<name>/`
+   - Create empty `spec.md` file
+   - Create `.state` file:
+     ```json
+     {
+       "name": "<name>",
+       "currentPhase": "spec",
+       "specComplete": false,
+       "researchComplete": false,
+       "planComplete": false,
+       "executeComplete": false,
+       "lastUpdated": "<ISO timestamp>"
+     }
+     ```
 
-**IMPORTANT:** Epic names are stored as hyphenated (e.g., \`initial-setup\`) but display with the user's original spacing in messages.
+3. **Start interactive spec conversation** (same as old spec mode - see Mode: spec section below)
 
-**Modes:**
-- \`list\` → List all epics
-- \`config <action>\` → Config management (view/init/reset)
-- \`<name>\` (no mode) → Default mode with checkpoints
-- \`<name> spec\` → Just create/view spec
-- \`<name> yolo\` → Full auto, no checkpoints
-- \`<name> status\` → Show status
+4. **After spec conversation completes:**
+   - Show the spec
+   - Ask: "Ready to save to `.lisa/epics/<name>/spec.md`?"
+   - On yes: Save spec, update `.state` (specComplete: true)
+   - Show next steps:
+     ```
+     Spec saved to .lisa/epics/<name>/spec.md!
+     
+     Next steps:
+     • /lisa-continue <name> - Continue to research phase (interactive)
+     • /lisa-yolo <name> - Auto-execute all remaining phases
+     • /lisa-list-epics - See all your epics
+     ```
+   - STOP (do not continue automatically)
 
 ---
 
-## Mode: config
+## Mode: list-epics
 
-Handle config subcommands using the \`lisa_config\` tool:
+**Use the \`list_epics\` tool** to get all epics and their status.
 
-- \`config view\` → Call \`lisa_config(action: "view")\` and display the result
-- \`config init\` → Call \`lisa_config(action: "init")\` and confirm creation
-- \`config reset\` → Call \`lisa_config(action: "reset")\` and confirm reset
+Display the results with phase checkboxes:
 
-After the tool returns, display the result in a user-friendly format.
+```
+Epic: initial-setup
+  ✓ Spec (complete)
+  ○ Research (not started)
+  ○ Plan (not started)
+  ○ Execute (not started)
+  
+  Next: /lisa-continue initial-setup or /lisa-yolo initial-setup
+
+Epic: auth-system
+  ✓ Spec (complete)
+  ✓ Research (complete)
+  ● Plan (in progress)
+  ○ Execute (not started)
+  
+  Next: /lisa-continue auth-system or /lisa-yolo auth-system
 
 ---
 
-## Mode: list
+No epics? Start one: /lisa-create-epic <name>
+```
 
-**Use the \`list_epics\` tool** to quickly get all epics and their status.
+**Legend:**
+- ✓ = complete
+- ● = in progress
+- ○ = not started
 
-Display the results in a formatted list showing:
-- Epic name
-- Current phase (spec/research/plan/execute/complete)
-- Task progress (X/Y done) if in execute phase
-- Whether yolo mode is active
+**IMPORTANT:** Always show both `/lisa-continue` and `/lisa-yolo` options for any epic that has spec complete.
 
 **If no epics found:**
-> "No epics found. Start one with \`/lisa <name>\`"
+```
+No epics found.
+
+Get started: /lisa-create-epic <name>
+```
 
 ---
 
-## Mode: status
+## Mode: epic-status
 
-**Use the \`get_epic_status\` tool** to quickly get detailed status.
+**Epic name:** Provided by command
 
-Display the results showing:
-- Current phase
-- Which artifacts exist (spec.md, research.md, plan.md)
-- Task breakdown: done, in-progress, pending, blocked
-- Yolo mode status (if active)
-- Suggested next action
+**Use the \`get_epic_status\` tool** to get detailed status.
+
+Display with checkbox format:
+
+```
+Epic: initial-setup
+Status: Spec phase complete
+
+Phase Progress:
+  ✓ Spec - complete (.lisa/epics/initial-setup/spec.md)
+  ○ Research - not started
+  ○ Plan - not started
+  ○ Execute - not started
+
+Spec Summary:
+[First 3-4 lines of spec.md]
+
+Next Actions:
+  • /lisa-continue initial-setup - Continue to research phase
+  • /lisa-yolo initial-setup - Auto-execute all remaining phases
+```
 
 **If epic doesn't exist:**
-> "Epic '<name>' not found. Start it with \`/lisa <name>\`"
+```
+Epic '<name>' not found.
+
+Create it with: /lisa-create-epic <name>
+```
 
 ---
 
-## Mode: spec
+## Shared: Spec Conversation
 
-Interactive spec creation only. Does NOT continue to research/plan/execute.
+This section is used by both "create-epic" and "continue" modes when creating a spec.
 
-### If spec already exists:
-
-Read and display the existing spec, then:
-
-> "Spec already exists at \`.lisa/epics/<name>/spec.md\`. You can:
-> - Edit it directly in your editor
-> - Delete it and run \`/lisa <name> spec\` again to start over
-> - Run \`/lisa <name>\` to continue with research and planning"
-
-### If no spec exists:
+Interactive conversation to define the spec. Cover:
 
 Have an interactive conversation to define the spec. Cover:
 
@@ -230,14 +251,22 @@ After saving:
 
 ---
 
-## Mode: default (with checkpoints)
+## Mode: continue
 
-This is the main interactive mode. It guides you through each phase with approval checkpoints.
+This is the interactive mode with checkpoints between phases. It resumes an existing epic.
 
-### Step 1: Ensure spec exists
+**Epic name:** Provided by command
+
+### Step 1: Verify spec exists
 
 **If no spec:**
-Run the spec conversation (same as spec mode). After saving, continue to step 2.
+Error:
+```
+No spec found for epic '<name>'.
+
+Create the epic first: /lisa-create-epic <name>
+```
+STOP.
 
 **If spec exists:**
 Read and briefly summarize it, then continue to step 2.
@@ -431,13 +460,14 @@ When in yolo mode, you MUST follow these rules strictly:
 
 ### If no spec exists:
 
-> "No spec found at \`.lisa/epics/<name>/spec.md\`.
->
-> Create one first:
-> - Interactively: \`/lisa <name> spec\`
-> - Manually: Create \`.lisa/epics/<name>/spec.md\`"
+Error:
+```
+No spec found for epic '<name>'.
 
-Stop. Do not proceed.
+Create the epic first: /lisa-create-epic <name>
+```
+
+STOP. Do not proceed.
 
 ### If spec exists:
 
