@@ -73,7 +73,28 @@ If the user runs \`/lisa\` with no arguments, or \`/lisa help\`, IMMEDIATELY out
 
 **CRITICAL: Output the above help text EXACTLY as shown. Do not add explanations, do not call tools, do not be creative. Just show the menu and stop.**
 
-### Otherwise, parse the arguments:
+### Otherwise, parse the arguments with SMART PARSING:
+
+**CRITICAL PARSING RULES:**
+
+The known modes are: \`list\`, \`config\`, \`spec\`, \`yolo\`, \`status\`
+
+**Parse from RIGHT to LEFT:**
+1. Check if the LAST argument is a known mode (spec/yolo/status)
+2. If yes: everything BEFORE it = epic name (joined with hyphens), last arg = mode
+3. If no: check if FIRST argument is "list" or "config" (special modes)
+4. Otherwise: ALL arguments = epic name (joined with hyphens), mode = null (default)
+
+**Parsing Examples:**
+- \`initial setup\` → name: "initial-setup", mode: null
+- \`initial setup yolo\` → name: "initial-setup", mode: "yolo"
+- \`my complex feature spec\` → name: "my-complex-feature", mode: "spec"
+- \`auth system status\` → name: "auth-system", mode: "status"
+- \`list\` → mode: "list" (special, no epic name)
+- \`config view\` → mode: "config view" (special, no epic name)
+- \`my-feature\` → name: "my-feature", mode: null
+
+**IMPORTANT:** Epic names are stored as hyphenated (e.g., \`initial-setup\`) but display with the user's original spacing in messages.
 
 **Modes:**
 - \`list\` → List all epics
@@ -82,14 +103,6 @@ If the user runs \`/lisa\` with no arguments, or \`/lisa help\`, IMMEDIATELY out
 - \`<name> spec\` → Just create/view spec
 - \`<name> yolo\` → Full auto, no checkpoints
 - \`<name> status\` → Show status
-
-**Examples:**
-- \`list\` → list all epics
-- \`config view\` → show config
-- \`my-feature\` → default mode
-- \`my-feature spec\` → spec only
-- \`my-feature yolo\` → full auto
-- \`my-feature status\` → show status
 
 ---
 
