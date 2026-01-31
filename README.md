@@ -4,7 +4,7 @@
 
 An intelligent epic workflow plugin for [OpenCode](https://opencode.ai). Like the Ralph Wiggum pattern, but smarter.
 
-**Latest version: 0.3.0** - Simplified one-command installation!
+**Latest version: 0.5.0** - Redesigned commands for clarity!
 
 ## Why Lisa?
 
@@ -58,13 +58,30 @@ To use Lisa in all your projects, add to your global OpenCode config:
 
 ## Usage
 
+**Create Epics:**
 ```
-/lisa help                 - Show all commands
-/lisa <name>               - Start or continue an epic
-/lisa <name> spec          - Create the spec only
-/lisa <name> yolo          - Full auto mode (no confirmations)
-/lisa <name> status        - Show progress
-/lisa list                 - List all epics
+/lisa-create-epic <name>   - Create new epic (interactive spec)
+```
+
+**Work With Epics:**
+```
+/lisa-list-epics           - List all epics with status
+/lisa-epic-status <name>   - Show detailed epic status
+/lisa-continue <name>      - Resume with interactive checkpoints
+/lisa-yolo <name>          - Resume in full auto mode
+```
+
+**Help:**
+```
+/lisa-help                 - Show help menu
+```
+
+**Examples:**
+```
+/lisa-create-epic initial setup
+/lisa-list-epics
+/lisa-continue initial-setup
+/lisa-yolo auth-system
 ```
 
 ## How It Works
