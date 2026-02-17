@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PLUGIN_NAME = 'opencode-lisa';
+const PLUGIN_NAME = 'llisa';
 
 const colors = {
   green: (s) => `\x1b[32m${s}\x1b[0m`,
@@ -19,7 +19,7 @@ const colors = {
 
 function printHelp() {
   console.log(`
-${colors.cyan('Lisa - Intelligent Epic Workflow Plugin')}
+${colors.cyan('Lisa - LLM-powered epic workflows')}
 
 Usage:
   npx ${PLUGIN_NAME} --opencode
@@ -31,7 +31,7 @@ Options:
 Example:
   npx ${PLUGIN_NAME} --opencode
 
-After installation, run ${colors.cyan('opencode')} and type ${colors.cyan('/lisa help')} to get started!
+After installation, run ${colors.cyan('opencode')} and type ${colors.cyan('/lisa-help')} to get started!
 `);
 }
 

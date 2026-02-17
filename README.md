@@ -1,10 +1,10 @@
-# opencode-lisa
+# llisa
 
 ![Lisa and Ralph](lisa-and-ralph.png)
 
-An intelligent epic workflow plugin for [OpenCode](https://opencode.ai). Like the Ralph Wiggum pattern, but smarter.
+LLM-powered epic workflows for [OpenCode](https://opencode.ai). Like the Ralph Wiggum pattern, but smarter.
 
-**Latest version: 0.5.0** - Redesigned commands for clarity!
+**Latest version: 1.0.0** - Fresh agent architecture with verification!
 
 ## Why Lisa?
 
@@ -18,8 +18,9 @@ The **Ralph Wiggum pattern** is a simple bash loop that keeps feeding prompts to
 **Lisa plans before she acts:**
 
 - **Structured phases** - spec, research, plan, then execute
+- **Fresh context per phase** - each phase runs in a sub-agent with clean context
+- **Verification + retry** - deterministic checks ensure agents complete their work
 - **Dependency-aware tasks** - knows what can run in parallel
-- **Fresh context per task** - each task runs in a sub-agent with clean context
 - **State persistence** - survives session restarts, tracks progress
 - **Yolo mode** - fully autonomous execution when you want it
 
@@ -28,13 +29,13 @@ The **Ralph Wiggum pattern** is a simple bash loop that keeps feeding prompts to
 One command to install Lisa in your project:
 
 ```bash
-npx opencode-lisa --opencode
+npx llisa --opencode
 ```
 
 Or with Bun:
 
 ```bash
-bunx opencode-lisa --opencode
+bunx llisa --opencode
 ```
 
 This creates an `opencode.json` file with Lisa configured. The plugin will be automatically downloaded by OpenCode when you start it.
@@ -52,7 +53,7 @@ To use Lisa in all your projects, add to your global OpenCode config:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-lisa"]
+  "plugin": ["llisa"]
 }
 ```
 
@@ -78,7 +79,7 @@ To use Lisa in all your projects, add to your global OpenCode config:
 
 **Examples:**
 ```
-/lisa-create-epic initial setup
+/lisa-create-epic initial-setup
 /lisa-list-epics
 /lisa-continue initial-setup
 /lisa-yolo auth-system
@@ -89,9 +90,11 @@ To use Lisa in all your projects, add to your global OpenCode config:
 Lisa breaks large features into phases:
 
 1. **Spec** - Define what you're building (interactive)
-2. **Research** - Explore the codebase to understand context
-3. **Plan** - Break into discrete tasks with dependencies
-4. **Execute** - Run tasks via sub-agents with fresh context
+2. **Research** - Explore the codebase (fresh agent, verified completion)
+3. **Plan** - Break into discrete tasks with dependencies (fresh agent, verified)
+4. **Execute** - Run tasks via sub-agents with clean context (verified per task)
+
+Each phase uses a fresh agent to prevent context pollution. Verification tools ensure phases actually complete before moving forward.
 
 All state is persisted to `.lisa/epics/` so you can stop and resume anytime.
 
@@ -101,16 +104,29 @@ Config lives in `.lisa/config.jsonc`:
 
 ```jsonc
 {
+  "execution": {
+    "maxRetries": 3,           // Retries per task/phase before blocking
+    "maxParallelTasks": 1      // Tasks to run in parallel (1 = sequential)
+  },
   "git": {
-    "completionMode": "none", // "none" | "commit" | "pr"
+    "completionMode": "none",  // "none" | "commit" | "pr"
+    "branchPrefix": "epic/",
+    "autoPush": true
   },
   "yolo": {
-    "defaultMaxIterations": 100,
-  },
+    "defaultMaxIterations": 100
+  }
 }
 ```
 
 In default mode, Lisa does NOT make commits or PRs. If you want to make commits you'll need git set up, and if you want to make PRs you'll need the github cli set up.
+
+## What's New in 1.0
+
+- **Fresh agent architecture** - Research, planning, and execution each use isolated sub-agents
+- **Verification tools** - Deterministic checks ensure phases complete properly
+- **Automatic retry** - Up to 3 attempts per phase with progressively stronger prompts
+- **Token efficiency** - Fresh context per phase prevents context window bloat
 
 ## License
 

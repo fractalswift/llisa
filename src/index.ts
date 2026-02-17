@@ -1032,6 +1032,292 @@ ${taskContent}
       }),
 
       // ----------------------------------------------------------------------
+      // build_research_context - Build context for research phase
+      // ----------------------------------------------------------------------
+      build_research_context: tool({
+        description: `Build the full context for the research phase of an epic.
+
+This tool reads the epic's spec and returns a complete prompt that should be
+passed to the Task tool to conduct research with a fresh sub-agent.
+
+Use this before calling the Task tool for the research phase.`,
+        args: {
+          epicName: tool.schema.string().describe("Name of the epic (the folder name under .lisa/epics/)"),
+        },
+        async execute(args) {
+          const { epicName } = args
+          const epicDir = join(directory, ".lisa", "epics", epicName)
+
+          // Verify epic exists
+          if (!existsSync(epicDir)) {
+            return JSON.stringify({
+              success: false,
+              error: `Epic "${epicName}" not found at ${epicDir}`,
+            }, null, 2)
+          }
+
+          // Read spec
+          const spec = await readFileIfExists(join(epicDir, "spec.md"))
+
+          if (!spec) {
+            return JSON.stringify({
+              success: false,
+              error: `No spec.md found for epic "${epicName}"`,
+            }, null, 2)
+          }
+
+          // Build the sub-agent prompt
+          const prompt = `# Research Phase: ${epicName}
+
+You are conducting research for an epic. Your goal is to understand the codebase
+and provide structured findings that will guide implementation planning.
+
+## Your Mission
+
+Explore the codebase thoroughly to understand:
+1. The current architecture and patterns
+2. Relevant existing files and their roles
+3. Dependencies and integrations
+4. Similar implementations you can reference
+
+When complete:
+1. Save findings to ".lisa/epics/${epicName}/research.md"
+2. Update the epic's .state file: set "researchComplete" to true and "currentPhase" to "research"
+
+## CRITICAL CONSTRAINTS
+
+**File System Boundaries:**
+- Work ONLY within the project directory and its subdirectories
+- DO NOT access files outside the project root
+- DO NOT write to system temp directories
+- For temporary files, use project-local directories only
+
+## Research Output Format
+
+Save to: ".lisa/epics/${epicName}/research.md"
+
+\`\`\`markdown
+# Research: ${epicName}
+
+## Overview
+[Summary of what you found - 2-3 sentences]
+
+## Relevant Files
+- \`path/to/file.ts\` - [brief description of relevance]
+- [more files...]
+
+## Existing Patterns
+[How similar features are implemented, architectural patterns you observed]
+
+## Dependencies
+[External packages, internal modules, APIs that will be relevant]
+
+## Recommendations
+[Suggested approach based on findings]
+\`\`\`
+
+---
+
+## Epic Spec
+
+${spec}
+
+---
+
+## Instructions
+
+1. Read the spec carefully to understand what needs to be built
+2. Use glob and grep to find relevant files and patterns
+3. Read key files to understand existing implementations
+4. Document your findings in research.md using the format above
+5. Update the .state file to mark research complete
+6. Report what you discovered and any key insights
+
+Be thorough but concise. Focus on practical implementation details.
+`
+
+          await client.app.log({
+            service: "lisa-plugin",
+            level: "info",
+            message: `Built research context for epic "${epicName}"`,
+          })
+
+          return JSON.stringify({
+            success: true,
+            prompt,
+            message: `Research context built for epic "${epicName}". Pass the 'prompt' field to the Task tool to execute research with a sub-agent.`,
+          }, null, 2)
+        },
+      }),
+
+      // ----------------------------------------------------------------------
+      // build_planning_context - Build context for planning phase
+      // ----------------------------------------------------------------------
+      build_planning_context: tool({
+        description: `Build the full context for the planning phase of an epic.
+
+This tool reads the epic's spec and research, then returns a complete prompt
+that should be passed to the Task tool to create the implementation plan
+with a fresh sub-agent.
+
+Use this before calling the Task tool for the planning phase.`,
+        args: {
+          epicName: tool.schema.string().describe("Name of the epic (the folder name under .lisa/epics/)"),
+        },
+        async execute(args) {
+          const { epicName } = args
+          const epicDir = join(directory, ".lisa", "epics", epicName)
+
+          // Verify epic exists
+          if (!existsSync(epicDir)) {
+            return JSON.stringify({
+              success: false,
+              error: `Epic "${epicName}" not found at ${epicDir}`,
+            }, null, 2)
+          }
+
+          // Read spec and research
+          const spec = await readFileIfExists(join(epicDir, "spec.md"))
+          const research = await readFileIfExists(join(epicDir, "research.md"))
+
+          if (!spec) {
+            return JSON.stringify({
+              success: false,
+              error: `No spec.md found for epic "${epicName}"`,
+            }, null, 2)
+          }
+
+          if (!research) {
+            return JSON.stringify({
+              success: false,
+              error: `No research.md found for epic "${epicName}". Run research phase first.`,
+            }, null, 2)
+          }
+
+          // Build the sub-agent prompt
+          const prompt = `# Planning Phase: ${epicName}
+
+You are creating an implementation plan for an epic. Your goal is to break down
+the work into discrete, actionable tasks with clear dependencies.
+
+## Your Mission
+
+Create a detailed implementation plan including:
+1. Task breakdown (~30 minutes per task)
+2. File assignments for each task
+3. Dependencies between tasks
+4. Individual task files in the tasks/ directory
+
+When complete:
+1. Save plan to ".lisa/epics/${epicName}/plan.md"
+2. Create task files in ".lisa/epics/${epicName}/tasks/"
+3. Update the epic's .state file: set "planComplete" to true and "currentPhase" to "plan"
+
+## CRITICAL CONSTRAINTS
+
+**File System Boundaries:**
+- Work ONLY within the project directory and its subdirectories
+- DO NOT access files outside the project root
+- DO NOT write to system temp directories
+- For temporary files, use project-local directories only
+
+## Plan Output Format
+
+Save to: ".lisa/epics/${epicName}/plan.md"
+
+\`\`\`markdown
+# Plan: ${epicName}
+
+## Overview
+[Brief approach summary - 2-3 sentences]
+
+## Tasks
+1. [Task name] - tasks/01-task-name.md
+2. [Task name] - tasks/02-task-name.md
+3. [etc...]
+
+## Dependencies
+- 01: []
+- 02: [01]
+- 03: [01, 02]
+[etc...]
+
+## Risks
+- [Risk and mitigation or "None identified"]
+\`\`\`
+
+## Task File Format
+
+Create each task file: ".lisa/epics/${epicName}/tasks/XX-task-name.md"
+
+\`\`\`markdown
+# Task X: [Name]
+
+## Status: pending
+
+## Goal
+[What this task accomplishes - 1 sentence]
+
+## Files
+- path/to/file.ts
+- [more files...]
+
+## Steps
+1. [Concrete action]
+2. [Concrete action]
+3. [etc...]
+
+## Done When
+- [ ] [Specific, verifiable criterion]
+- [ ] [more criteria...]
+\`\`\`
+
+---
+
+## Epic Spec
+
+${spec}
+
+---
+
+## Research Findings
+
+${research}
+
+---
+
+## Instructions
+
+1. Review the spec and research findings
+2. Break work into ~30 minute tasks (typically 3-10 tasks)
+3. Define clear dependencies (which tasks must complete before others)
+4. Create plan.md with task list and dependencies
+5. Create individual task files with detailed steps
+6. Update the .state file to mark planning complete
+7. Report summary: number of tasks created and key dependencies
+
+Guidelines:
+- Keep tasks focused (1-5 files per task)
+- Make tasks independently verifiable
+- Order dependencies logically
+- Don't over-engineer - simple is better
+`
+
+          await client.app.log({
+            service: "lisa-plugin",
+            level: "info",
+            message: `Built planning context for epic "${epicName}"`,
+          })
+
+          return JSON.stringify({
+            success: true,
+            prompt,
+            message: `Planning context built for epic "${epicName}". Pass the 'prompt' field to the Task tool to execute planning with a sub-agent.`,
+          }, null, 2)
+        },
+      }),
+
+      // ----------------------------------------------------------------------
       // lisa_config - View and manage Lisa configuration
       // ----------------------------------------------------------------------
       lisa_config: tool({
@@ -1125,6 +1411,246 @@ Actions:
           }
 
           return JSON.stringify({ success: false, error: `Unknown action: ${action}` }, null, 2)
+        },
+      }),
+
+      // ----------------------------------------------------------------------
+      // verify_task_complete - Check if a task was actually completed
+      // ----------------------------------------------------------------------
+      verify_task_complete: tool({
+        description: `Verify that a task was actually completed by checking the task file.
+
+Returns whether the task is truly complete (status: done, has report section).
+Use this after a Task tool execution to ensure the task was finished properly.
+If incomplete, retry with stronger enforcement prompts.`,
+        args: {
+          epicName: tool.schema.string().describe("Name of the epic"),
+          taskId: tool.schema.string().describe("Task ID like '01', '02', etc."),
+        },
+        async execute(args) {
+          const { epicName, taskId } = args
+          const tasksDir = join(directory, ".lisa", "epics", epicName, "tasks")
+
+          if (!existsSync(tasksDir)) {
+            return JSON.stringify({
+              complete: false,
+              error: "Tasks directory not found",
+            }, null, 2)
+          }
+
+          // Find the task file
+          const taskFiles = await getTaskFiles(directory, epicName)
+          const taskFile = taskFiles.find((f) => f.startsWith(taskId))
+
+          if (!taskFile) {
+            return JSON.stringify({
+              complete: false,
+              error: `Task ${taskId} not found`,
+            }, null, 2)
+          }
+
+          try {
+            const content = await readFile(join(tasksDir, taskFile), "utf-8")
+            
+            // Check completion criteria
+            const hasDoneStatus = content.includes("## Status: done")
+            const hasReport = content.includes("## Report")
+            const hasWhatWasDone = content.includes("### What Was Done")
+            const hasFilesChanged = content.includes("### Files Changed")
+            
+            const complete = hasDoneStatus && hasReport && hasWhatWasDone && hasFilesChanged
+            
+            const issues: string[] = []
+            if (!hasDoneStatus) issues.push("Status not marked as 'done'")
+            if (!hasReport) issues.push("Missing ## Report section")
+            if (!hasWhatWasDone) issues.push("Missing ### What Was Done")
+            if (!hasFilesChanged) issues.push("Missing ### Files Changed")
+
+            return JSON.stringify({
+              complete,
+              taskFile,
+              checks: {
+                hasDoneStatus,
+                hasReport,
+                hasWhatWasDone,
+                hasFilesChanged,
+              },
+              issues: issues.length > 0 ? issues : undefined,
+            }, null, 2)
+          } catch {
+            return JSON.stringify({
+              complete: false,
+              error: "Failed to read task file",
+            }, null, 2)
+          }
+        },
+      }),
+
+      // ----------------------------------------------------------------------
+      // verify_research_complete - Check if research phase was completed
+      // ----------------------------------------------------------------------
+      verify_research_complete: tool({
+        description: `Verify that the research phase was actually completed.
+
+Returns whether research.md exists and has required sections.
+Use this after a Task tool execution for research to ensure it finished properly.`,
+        args: {
+          epicName: tool.schema.string().describe("Name of the epic"),
+        },
+        async execute(args) {
+          const { epicName } = args
+          const epicDir = join(directory, ".lisa", "epics", epicName)
+          const researchPath = join(epicDir, "research.md")
+          const statePath = join(epicDir, ".state")
+
+          // Check research.md exists
+          if (!existsSync(researchPath)) {
+            return JSON.stringify({
+              complete: false,
+              error: "research.md not found",
+              checks: {
+                hasResearchFile: false,
+                hasRequiredSections: false,
+                stateUpdated: false,
+              },
+            }, null, 2)
+          }
+
+          try {
+            const content = await readFile(researchPath, "utf-8")
+            
+            // Check required sections
+            const hasOverview = content.includes("## Overview")
+            const hasRelevantFiles = content.includes("## Relevant Files")
+            const hasPatterns = content.includes("## Existing Patterns")
+            const hasRecommendations = content.includes("## Recommendations")
+            
+            const hasRequiredSections = hasOverview && hasRelevantFiles && hasPatterns && hasRecommendations
+            
+            // Check state updated
+            let stateUpdated = false
+            if (existsSync(statePath)) {
+              const stateContent = await readFile(statePath, "utf-8")
+              const state = JSON.parse(stateContent) as EpicState
+              stateUpdated = state.researchComplete === true
+            }
+
+            const issues: string[] = []
+            if (!hasOverview) issues.push("Missing ## Overview")
+            if (!hasRelevantFiles) issues.push("Missing ## Relevant Files")
+            if (!hasPatterns) issues.push("Missing ## Existing Patterns")
+            if (!hasRecommendations) issues.push("Missing ## Recommendations")
+            if (!stateUpdated) issues.push("State not updated (researchComplete: true)")
+
+            const complete = hasRequiredSections && stateUpdated
+
+            return JSON.stringify({
+              complete,
+              checks: {
+                hasResearchFile: true,
+                hasRequiredSections,
+                hasOverview,
+                hasRelevantFiles,
+                hasPatterns,
+                hasRecommendations,
+                stateUpdated,
+              },
+              issues: issues.length > 0 ? issues : undefined,
+            }, null, 2)
+          } catch {
+            return JSON.stringify({
+              complete: false,
+              error: "Failed to read research.md",
+            }, null, 2)
+          }
+        },
+      }),
+
+      // ----------------------------------------------------------------------
+      // verify_planning_complete - Check if planning phase was completed
+      // ----------------------------------------------------------------------
+      verify_planning_complete: tool({
+        description: `Verify that the planning phase was actually completed.
+
+Returns whether plan.md and task files exist with required content.
+Use this after a Task tool execution for planning to ensure it finished properly.`,
+        args: {
+          epicName: tool.schema.string().describe("Name of the epic"),
+        },
+        async execute(args) {
+          const { epicName } = args
+          const epicDir = join(directory, ".lisa", "epics", epicName)
+          const planPath = join(epicDir, "plan.md")
+          const tasksDir = join(epicDir, "tasks")
+          const statePath = join(epicDir, ".state")
+
+          // Check plan.md exists
+          if (!existsSync(planPath)) {
+            return JSON.stringify({
+              complete: false,
+              error: "plan.md not found",
+              checks: {
+                hasPlanFile: false,
+                hasTaskFiles: false,
+                stateUpdated: false,
+              },
+            }, null, 2)
+          }
+
+          try {
+            const planContent = await readFile(planPath, "utf-8")
+            
+            // Check plan sections
+            const hasOverview = planContent.includes("## Overview")
+            const hasTasks = planContent.includes("## Tasks")
+            const hasDependencies = planContent.includes("## Dependencies")
+            
+            // Check task files exist
+            let hasTaskFiles = false
+            let taskCount = 0
+            if (existsSync(tasksDir)) {
+              const files = await readdir(tasksDir)
+              const taskFiles = files.filter((f) => f.endsWith(".md"))
+              taskCount = taskFiles.length
+              hasTaskFiles = taskCount > 0
+            }
+
+            // Check state updated
+            let stateUpdated = false
+            if (existsSync(statePath)) {
+              const stateContent = await readFile(statePath, "utf-8")
+              const state = JSON.parse(stateContent) as EpicState
+              stateUpdated = state.planComplete === true
+            }
+
+            const issues: string[] = []
+            if (!hasOverview) issues.push("Missing ## Overview in plan.md")
+            if (!hasTasks) issues.push("Missing ## Tasks in plan.md")
+            if (!hasDependencies) issues.push("Missing ## Dependencies in plan.md")
+            if (!hasTaskFiles) issues.push("No task files created in tasks/")
+            if (!stateUpdated) issues.push("State not updated (planComplete: true)")
+
+            const complete = hasOverview && hasTasks && hasDependencies && hasTaskFiles && stateUpdated
+
+            return JSON.stringify({
+              complete,
+              taskCount,
+              checks: {
+                hasPlanFile: true,
+                hasOverview,
+                hasTasks,
+                hasDependencies,
+                hasTaskFiles,
+                stateUpdated,
+              },
+              issues: issues.length > 0 ? issues : undefined,
+            }, null, 2)
+          } catch {
+            return JSON.stringify({
+              complete: false,
+              error: "Failed to read plan.md",
+            }, null, 2)
+          }
         },
       }),
 

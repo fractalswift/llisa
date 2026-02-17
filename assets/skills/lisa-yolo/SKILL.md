@@ -14,13 +14,16 @@ Full automatic execution with no checkpoints or confirmations.
 1. **NEVER stop to summarize** - No progress updates. Just work.
 2. **NEVER ask for confirmation** - No "Ready to continue?". Just proceed.
 3. **NEVER explain what you're doing** - Don't narrate. Execute.
-4. **ALWAYS execute next task immediately** - After task completes, call `get_available_tasks` and start next.
+4. **ALWAYS execute next phase immediately** - After phase completes, start next phase.
 5. **ONLY stop when truly done** - All tasks `done` OR all remaining `blocked`.
-6. **Maximize progress per response** - Execute as many tasks as possible before response ends.
+6. **Maximize progress per response** - Execute as many phases/tasks as possible.
+7. **ALWAYS use fresh agents** - Each phase uses Task tool with clean context.
+8. **ALWAYS verify completion** - Use verify_* tools after each phase.
+9. **RETRY on failure** - Up to 3 attempts per phase before marking blocked.
 
 Yolo is for autonomous execution. User has walked away. Every stop wastes time.
 
-**If unsure, keep working.** Better to complete extra task than stop and ask.
+**If unsure, keep working.** Better to complete extra work than stop and ask.
 
 ---
 
@@ -81,34 +84,123 @@ Update `.state`:
 
 ## Execute All Remaining Phases
 
-Run phases WITHOUT asking:
+Run phases WITHOUT asking, using **fresh sub-agents** with **verification and retry**:
 
 ### 1. Research (if not done)
-- Read spec
-- Explore codebase
-- Save research.md
-- Update .state (researchComplete: true)
+
+**DO NOT ask. Just do it.**
+
+**ATTEMPT 1:**
+1. Call `build_research_context("${epicName}")`
+2. Call **Task tool** with:
+   - prompt: returned research prompt
+   - subagent_type: "explore"
+3. Call `verify_research_complete("${epicName}")`
+4. **If verification.complete === true:** Immediately proceed to planning
+
+**ATTEMPT 2** (if incomplete):
+1. Call **Task tool** with STRONGER prompt:
+   ```
+   [YOLO RESEARCH RETRY - MUST COMPLETE NOW]
+   
+   Previous attempt INCOMPLETE. Issues: [verification.issues]
+   
+   YOLO MODE = NO STOPPING. COMPLETE IMMEDIATELY:
+   1. Read spec.md
+   2. Write complete research.md
+   3. Update .state
+   
+   DO NOT stop. DO NOT explain. JUST DO IT.
+   
+   [original research prompt]
+   ```
+2. Call `verify_research_complete("${epicName}")`
+3. **If complete:** Proceed to planning
+
+**ATTEMPT 3** (if still incomplete):
+1. Final attempt with URGENT prompt
+2. Call verification
+3. **If still incomplete:**
+   - Update `.state.yolo.active = false`
+   - Show: "Yolo mode stopped: Research failed after 3 attempts. Issues: [list]. Use /lisa-continue ${epicName} for interactive mode."
+   - STOP
+
+---
 
 ### 2. Plan (if not done)
-- Read spec and research
-- Create tasks (~30 min each)
-- Define dependencies
-- Save plan.md and task files
-- Update .state (planComplete: true)
+
+**DO NOT ask. Just do it.**
+
+Same retry pattern as Research:
+
+**ATTEMPT 1:**
+1. Call `build_planning_context("${epicName}")`
+2. Call **Task tool** with:
+   - prompt: returned planning prompt
+   - subagent_type: "general"
+3. Call `verify_planning_complete("${epicName}")`
+4. **If complete:** Immediately proceed to execution
+
+**ATTEMPTS 2-3:** Same retry logic with stronger prompts
+
+**If still incomplete after 3 attempts:**
+- Stop yolo mode
+- Report failure
+- STOP
+
+---
 
 ### 3. Execute
+
 Use `execution.maxParallelTasks` from config (default: 1).
 
-Loop until all done or blocked:
-1. Call `get_available_tasks(epicName)`
-2. Execute up to `maxParallelTasks` from available list:
-   - Call `build_task_context(epicName, taskId)`
-   - Call Task tool with prompt
-3. Call `get_available_tasks` again
-4. If task failed, retry up to `maxRetries`, then mark blocked
-5. Repeat
+**TASK EXECUTION WITH VERIFICATION:**
 
-**NO summaries between tasks. NO asking to continue. Just keep working.**
+Loop until all done or blocked:
+
+1. Call `get_available_tasks(epicName)`
+2. For each available task (up to maxParallelTasks):
+   
+   **ATTEMPT 1:**
+   - Call `build_task_context(epicName, taskId)`
+   - Call **Task tool** with prompt
+   - Call `verify_task_complete(epicName, taskId)`
+   - **If complete:** Move to next task
+   
+   **ATTEMPT 2** (if incomplete):
+   - Call **Task tool** with STRONGER prompt:
+     ```
+     [YOLO TASK RETRY - COMPLETE IMMEDIATELY]
+     
+     Task ${taskId} NOT COMPLETE. Issues: [verification.issues]
+     
+     YOLO RULES:
+     - DO NOT stop
+     - DO NOT summarize
+     - COMPLETE THE TASK NOW
+     - Update status to "done"
+     - Add full ## Report section
+     
+     [original task prompt]
+     ```
+   - Call verification
+   - **If complete:** Move to next task
+   
+   **ATTEMPT 3** (if still incomplete):
+   - Final attempt with URGENT prompt
+   - Call verification
+   - **If still incomplete:**
+     - Mark task as `blocked` in task file
+     - Continue with other tasks (DO NOT stop yolo)
+
+3. Call `get_available_tasks` again
+4. **REPEAT** - No summaries, just keep executing
+
+**If all remaining tasks are blocked:**
+- Update `.state.yolo.active = false`
+- Show: "Yolo mode stopped: All remaining tasks blocked after retries."
+- List blocked tasks and reasons
+- STOP
 
 ---
 

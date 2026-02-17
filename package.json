@@ -1,11 +1,11 @@
 {
-  "name": "opencode-lisa",
-  "version": "0.6.3",
-  "description": "Lisa - intelligent epic workflow plugin for OpenCode. Like Ralph Wiggum, but smarter.",
+  "name": "llisa",
+  "version": "1.0.0",
+  "description": "Lisa - LLM-powered epic workflows for OpenCode",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "opencode-lisa": "./bin/cli.js"
+    "llisa": "./bin/cli.js"
   },
   "files": [
     "dist",
@@ -31,11 +31,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fractalswift/lisa-simpson.git"
+    "url": "git+https://github.com/fractalswift/llisa.git"
   },
-  "homepage": "https://github.com/fractalswift/lisa-simpson#readme",
+  "homepage": "https://github.com/fractalswift/llisa#readme",
   "bugs": {
-    "url": "https://github.com/fractalswift/lisa-simpson/issues"
+    "url": "https://github.com/fractalswift/llisa/issues"
   },
   "engines": {
     "node": ">=18.0.0"
