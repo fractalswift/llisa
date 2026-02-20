@@ -1,0 +1,9 @@
+{
+  "name": "lisa",
+  "description": "LLM-powered epic workflows. Spec, research, plan, then execute with fresh sub-agents per phase. Like Ralph, but smarter.",
+  "version": "1.0.0",
+  "author": {
+    "name": "llisa"
+  },
+  "repository": "https://github.com/fractalswift/llisa"
+}

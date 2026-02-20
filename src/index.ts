@@ -1005,14 +1005,19 @@ ${taskContent}
 
 ## Instructions
 
-1. Read and understand the task
-2. Execute the steps described
-3. Verify the "Done When" criteria are met
-4. Update the task file:
+1. **Orient yourself first (if git is available):**
+   - Run \`git status\` to see the current working tree state
+   - Run \`git log --oneline -10\` to see what previous tasks have changed
+   - Run \`git diff HEAD\` to see any uncommitted changes
+   - If git is not initialised or not available, skip this step entirely and proceed
+2. Read and understand the task
+3. Execute the steps described
+4. Verify the "Done When" criteria are met
+5. Update the task file:
    - Change \`## Status: pending\` or \`## Status: in-progress\` to \`## Status: done\`
    - Add a \`## Report\` section at the end
-5. If you need to modify future tasks or the plan, do so
-6. When complete, confirm what was done
+6. If you need to modify future tasks or the plan, do so
+7. When complete, confirm what was done
 `
 
           await client.app.log({

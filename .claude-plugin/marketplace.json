@@ -1,0 +1,21 @@
+{
+  "name": "llisa",
+  "owner": {
+    "name": "llisa"
+  },
+  "metadata": {
+    "description": "LLM-powered epic workflows for Claude Code. Like Ralph, but smarter."
+  },
+  "plugins": [
+    {
+      "name": "lisa",
+      "source": "./",
+      "description": "Spec, research, plan, then execute with fresh sub-agents per phase. Structured epic workflows with yolo auto-continue mode.",
+      "version": "1.0.0",
+      "homepage": "https://github.com/fractalswift/llisa",
+      "repository": "https://github.com/fractalswift/llisa",
+      "license": "MIT",
+      "keywords": ["epic", "workflow", "planning", "yolo", "agents"]
+    }
+  ]
+}

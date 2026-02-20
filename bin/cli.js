@@ -22,14 +22,16 @@ function printHelp() {
 ${colors.cyan('Lisa - LLM-powered epic workflows')}
 
 Usage:
-  npx ${PLUGIN_NAME} --opencode
+  npx ${PLUGIN_NAME} --opencode [--global]
 
 Options:
-  --opencode    Install Lisa for OpenCode in current directory
+  --opencode    Install Lisa for OpenCode
+  --global      Install globally (~/.config/opencode/) instead of current directory
   --help, -h    Show this help message
 
-Example:
-  npx ${PLUGIN_NAME} --opencode
+Examples:
+  npx ${PLUGIN_NAME} --opencode             Install in current project
+  npx ${PLUGIN_NAME} --opencode --global    Install globally for all projects
 
 After installation, run ${colors.cyan('opencode')} and type ${colors.cyan('/lisa-help')} to get started!
 `);
@@ -143,9 +145,12 @@ function installSkillFiles(targetDir) {
   }
 }
 
-async function install(targetDir) {
+async function install(targetDir, { global: isGlobal = false } = {}) {
   console.log('');
   console.log(colors.cyan('Lisa - Intelligent Epic Workflow Plugin'));
+  if (isGlobal) {
+    console.log(colors.dim(`  Installing globally to: ${targetDir}`));
+  }
   console.log('');
 
   // Check if OpenCode is installed
@@ -212,9 +217,9 @@ async function install(targetDir) {
 
   // Check if already installed
   if (config.plugin.includes(PLUGIN_NAME)) {
-    console.log(colors.yellow(`Lisa is already configured in this project.`));
+    console.log(colors.yellow(`Lisa is already configured${isGlobal ? ' globally' : ' in this project'}.`));
     console.log('');
-    console.log(`Run ${colors.cyan('opencode')} and type ${colors.cyan('/lisa help')} to get started!`);
+    console.log(`Run ${colors.cyan('opencode')} and type ${colors.cyan('/lisa-help')} to get started!`);
     console.log('');
     return;
   }
@@ -239,12 +244,16 @@ async function install(targetDir) {
   console.log('');
   console.log(colors.green('Done!'));
   console.log('');
-  console.log('Lisa is now installed and will be auto-downloaded by OpenCode.');
+  if (isGlobal) {
+    console.log('Lisa is now installed globally and will be available in all OpenCode sessions.');
+  } else {
+    console.log('Lisa is now installed and will be auto-downloaded by OpenCode.');
+  }
   console.log('');
   console.log('Next steps:');
   console.log(`  1. Run ${colors.cyan('opencode')} to start OpenCode`);
-  console.log(`  2. Type ${colors.cyan('/lisa help')} to see available commands`);
-  console.log(`  3. Type ${colors.cyan('/lisa <epic-name>}')} to create your first epic`);
+  console.log(`  2. Type ${colors.cyan('/lisa-help')} to see available commands`);
+  console.log(`  3. Type ${colors.cyan('/lisa-create-epic <epic-name>')} to create your first epic`);
   console.log('');
 }
 
@@ -253,6 +262,7 @@ async function main() {
   
   // Parse flags
   const opencodeFlag = args.includes('--opencode');
+  const globalFlag = args.includes('--global');
   const help = args.includes('--help') || args.includes('-h');
 
   if (help || args.length === 0) {
@@ -266,8 +276,13 @@ async function main() {
     process.exit(1);
   }
 
-  const targetDir = process.cwd();
-  await install(targetDir);
+  if (globalFlag) {
+    const { homedir } = await import('os');
+    const targetDir = join(homedir(), '.config', 'opencode');
+    await install(targetDir, { global: true });
+  } else {
+    await install(process.cwd(), { global: false });
+  }
 }
 
 main().catch((err) => {

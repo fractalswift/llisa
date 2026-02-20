@@ -2,7 +2,7 @@
 
 ![Lisa and Ralph](lisa-and-ralph.png)
 
-LLM-powered epic workflows for [OpenCode](https://opencode.ai). Like the Ralph Wiggum pattern, but smarter.
+LLM-powered epic workflows for [OpenCode](https://opencode.ai) and [Claude Code](https://claude.ai/code). Like the Ralph Wiggum pattern, but smarter.
 
 **Latest version: 1.0.0** - Fresh agent architecture with verification!
 
@@ -26,6 +26,8 @@ The **Ralph Wiggum pattern** is a simple bash loop that keeps feeding prompts to
 
 ## Install
 
+### OpenCode
+
 One command to install Lisa in your project:
 
 ```bash
@@ -42,47 +44,102 @@ This creates an `opencode.json` file with Lisa configured. The plugin will be au
 
 Requires [OpenCode](https://opencode.ai) 1.0+.
 
-### Global Installation
+#### Global Installation (OpenCode)
 
-To use Lisa in all your projects, add to your global OpenCode config:
+To use Lisa in all your projects without installing per-project:
 
 ```bash
-# Create or edit ~/.config/opencode/opencode.json
+npx llisa --opencode --global
 ```
 
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["llisa"]
-}
+This installs to `~/.config/opencode/` and registers the plugin in your global OpenCode config.
+
+### Claude Code
+
+Add this repo as a marketplace, then install the plugin:
+
 ```
+/plugin marketplace add fractalswift/llisa
+/plugin install lisa@llisa
+```
+
+Or for project-level install (committed to the repo, shared with teammates):
+
+```
+/plugin install lisa@llisa --scope project
+```
+
+Requires Claude Code 1.0.33+ and `jq` (`brew install jq` / `apt install jq`).
 
 ## Usage
 
-**Create Epics:**
+### OpenCode commands
 ```
 /lisa-create-epic <name>   - Create new epic (interactive spec)
-```
-
-**Work With Epics:**
-```
 /lisa-list-epics           - List all epics with status
 /lisa-epic-status <name>   - Show detailed epic status
 /lisa-continue <name>      - Resume with interactive checkpoints
 /lisa-yolo <name>          - Resume in full auto mode
+/lisa-help                 - Show help menu
 ```
 
-**Help:**
+### Claude Code commands
 ```
-/lisa-help                 - Show help menu
+/lisa:create-epic <name>            - Create new epic (interactive spec)
+/lisa:list-epics                    - List all epics with status
+/lisa:epic-status <name>            - Show detailed epic status
+/lisa:continue <name>               - Resume with interactive checkpoints
+/lisa:yolo <name> [max-iterations]  - Resume in full auto mode
+/lisa:help                          - Show help menu
 ```
 
 **Examples:**
 ```
-/lisa-create-epic initial-setup
-/lisa-list-epics
-/lisa-continue initial-setup
-/lisa-yolo auth-system
+/lisa:create-epic initial-setup
+/lisa:list-epics
+/lisa:continue initial-setup
+/lisa:yolo auth-system
+/lisa:yolo auth-system 50     ← limit to 50 yolo iterations
+```
+
+**Epics are portable between OpenCode and Claude Code** — the `.lisa/` file format is identical on both platforms.
+
+## Writing Good Specs
+
+The spec is the single most important factor in epic quality. Lisa will do exactly what you specify — vague specs produce vague results.
+
+**Acceptance criteria should be verifiable:**
+```
+✓ Users can log in with email and password, receiving a JWT on success
+✗ Auth works well
+```
+
+**Explicitly list out-of-scope items** — prevents the agent from gold-plating or going too wide:
+```
+### Out of Scope
+- OAuth / social login
+- Password reset flow
+- Email verification
+```
+
+**Mention your test setup** in Technical Constraints — if you have tests, the agent will run them and use failures as feedback:
+```
+## Technical Constraints
+- Project uses Jest; all new code must have tests passing (`npm test`)
+- Follow existing Express middleware pattern in src/middleware/
+```
+
+**Keep epics focused** — aim for work completable in 1-4 hours of agent time. Split larger features into multiple epics:
+```
+✓ /lisa-create-epic auth-login     (login flow only)
+✓ /lisa-create-epic auth-register  (registration flow, separate epic)
+✗ /lisa-create-epic auth           (too broad)
+```
+
+**Concrete constraints beat vague ones:**
+```
+✓ Use the existing UserRepository in src/db/user.ts
+✗ Follow existing patterns
 ```
 
 ## How It Works
@@ -94,7 +151,7 @@ Lisa breaks large features into phases:
 3. **Plan** - Break into discrete tasks with dependencies (fresh agent, verified)
 4. **Execute** - Run tasks via sub-agents with clean context (verified per task)
 
-Each phase uses a fresh agent to prevent context pollution. Verification tools ensure phases actually complete before moving forward.
+Each phase uses a fresh agent to prevent context pollution. On OpenCode, custom tools verify completion deterministically. On Claude Code, agents verify by reading files directly — same outcome, no custom tools needed.
 
 All state is persisted to `.lisa/epics/` so you can stop and resume anytime.
 

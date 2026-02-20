@@ -1,0 +1,15 @@
+{
+  "description": "Lisa plugin stop hook for yolo mode auto-continuation",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/lisa-yolo-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

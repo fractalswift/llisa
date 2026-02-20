@@ -1,6 +1,5 @@
 ---
-description: Show Lisa help menu
-agent: general
+description: Show Lisa help and commands
 ---
 
 Output EXACTLY this help menu (no skill loading, no tool calls):
@@ -11,31 +10,27 @@ Output EXACTLY this help menu (no skill loading, no tool calls):
 
 **Create Epics:**
 
-`/lisa-create-epic <name>` - Create new epic (interactive spec)
+`/lisa:create-epic <name>` - Create new epic (interactive spec)
 
 **Work With Epics:**
 
-`/lisa-list-epics` - List all epics and status  
-`/lisa-epic-status <name>` - Show detailed epic status  
-`/lisa-continue <name>` - Resume with interactive checkpoints  
-`/lisa-yolo <name>` - Resume in full auto mode  
+`/lisa:list-epics` - List all epics and status
+`/lisa:epic-status <name>` - Show detailed epic status
+`/lisa:continue <name>` - Resume with interactive checkpoints
+`/lisa:yolo <name> [max-iterations]` - Resume in full auto mode
 
 **Help:**
 
-`/lisa-help` - Show this help
+`/lisa:help` - Show this help
 
-**Configuration:** Edit `.lisa/config.jsonc` manually  
-**Documentation:** https://github.com/fractalswift/lisa-simpson
+**Configuration:** Edit `.lisa/config.jsonc` manually
 
 **Examples:**
-- `/lisa-create-epic auth-system` - Start new epic
-- `/lisa-list-epics` - See what epics exist
-- `/lisa-continue auth-system` - Continue interactively
-- `/lisa-yolo auth-system` - Auto-execute remaining work
-
-**Get started:** `/lisa-create-epic <your-epic-name>`
-
----
+- `/lisa:create-epic auth-system` - Start new epic
+- `/lisa:list-epics` - See what epics exist
+- `/lisa:continue auth-system` - Continue interactively
+- `/lisa:yolo auth-system` - Auto-execute remaining work
+- `/lisa:yolo auth-system 50` - Auto-execute with 50 iteration limit
 
 **Writing good specs:**
 
@@ -47,6 +42,8 @@ A good spec is the single most important factor in epic quality. Tips:
 - **Keep epics focused** - aim for work completable in 1-4 hours of agent time; split larger features into multiple epics
 - **Concrete constraints beat vague ones** - "use existing Express middleware pattern in src/middleware/" beats "follow existing patterns"
 
+**Get started:** `/lisa:create-epic <your-epic-name>`
+
 ---
 
-DO NOT call any tools. DO NOT load the skill. Just output the above and stop.
+DO NOT call any tools. DO NOT load any skill. Just output the above and stop.
